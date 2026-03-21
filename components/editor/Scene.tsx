@@ -6,101 +6,239 @@ import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { useEditorStore } from '@/store/editorStore'
 import GroundGrid from './GroundGrid'
-import HoverOutline from './HoverOutline'
+import BlockMesh from './BlockMesh'
 
 const MOVE_SPEED = 10
 const LOOK_SENSITIVITY = 0.002
 
+let IS_LOCKED = false
+let IS_ERASING = false
+
+// Stores the grid coords where the NEXT block will be placed
+let PLACE_X: number | null = null
+let PLACE_Y: number | null = null
+let PLACE_Z: number | null = null
+
+// Stores the grid coords of the block being hovered (for erasing)
+let ERASE_X: number | null = null
+let ERASE_Y: number | null = null
+let ERASE_Z: number | null = null
+
+function castRay(camera: THREE.Camera, scene: THREE.Scene) {
+  const rc = new THREE.Raycaster()
+  rc.setFromCamera(new THREE.Vector2(0, 0), camera)
+
+  const hits = rc.intersectObjects(scene.children, true).filter(h =>
+    !h.object.userData.isOutline &&
+    !h.object.userData.isGhost
+  )
+
+  // Reset
+  PLACE_X = null; PLACE_Y = null; PLACE_Z = null
+  ERASE_X = null; ERASE_Y = null; ERASE_Z = null
+
+  if (hits.length > 0 && hits[0].face) {
+    const hit = hits[0]
+
+    // World normal snapped to cardinal
+    const norm = hit.face!.normal.clone().transformDirection(hit.object.matrixWorld)
+    const ax = Math.abs(norm.x), ay = Math.abs(norm.y), az = Math.abs(norm.z)
+    let nx = 0, ny = 0, nz = 0
+    if (ax > ay && ax > az) nx = Math.sign(norm.x)
+    else if (ay > ax && ay > az) ny = Math.sign(norm.y)
+    else nz = Math.sign(norm.z)
+
+    // Hovered block center (for erase)
+    const hx = hit.point.x - nx * 0.5
+    const hy = hit.point.y - ny * 0.5
+    const hz = hit.point.z - nz * 0.5
+    ERASE_X = Math.floor(hx)
+    ERASE_Y = Math.floor(hy)
+    ERASE_Z = Math.floor(hz)
+
+    // Adjacent block (for place)
+    const px = hit.point.x + nx * 0.5
+    const py = hit.point.y + ny * 0.5
+    const pz = hit.point.z + nz * 0.5
+    PLACE_X = Math.floor(px)
+    PLACE_Y = Math.floor(py)
+    PLACE_Z = Math.floor(pz)
+
+    return { hasHit: true, nx, ny, nz }
+  }
+
+  // Ground plane fallback
+  const ray = rc.ray
+  if (Math.abs(ray.direction.y) > 0.001) {
+    const t = -ray.origin.y / ray.direction.y
+    if (t > 0 && t < 1000) {
+      PLACE_X = Math.floor(ray.origin.x + t * ray.direction.x)
+      PLACE_Y = 0
+      PLACE_Z = Math.floor(ray.origin.z + t * ray.direction.z)
+    }
+  }
+
+  return { hasHit: false, nx: 0, ny: 1, nz: 0 }
+}
+
+function Outline() {
+  const ref = useRef<THREE.Mesh>(null)
+  const { camera, scene } = useThree()
+
+  useFrame(() => {
+    if (!ref.current) return
+    if (!IS_LOCKED) { ref.current.visible = false; return }
+
+    castRay(camera, scene as THREE.Scene)
+
+    if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+      ref.current.position.set(PLACE_X + 0.5, PLACE_Y + 0.5, PLACE_Z + 0.5)
+      ref.current.visible = true
+    } else {
+      ref.current.visible = false
+    }
+  })
+
+  return (
+    <mesh ref={ref} visible={false} userData={{ isOutline: true }}>
+      <boxGeometry args={[1.02, 1.02, 1.02]} />
+      <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.8} />
+    </mesh>
+  )
+}
+
+function Ghost() {
+  const ref = useRef<THREE.Mesh>(null)
+  const matRef = useRef<THREE.MeshLambertMaterial>(null)
+  const selectedBlock = useEditorStore((s) => s.selectedBlock)
+
+  useFrame(() => {
+    if (!ref.current) return
+    if (!IS_LOCKED || IS_ERASING) { ref.current.visible = false; return }
+    if (matRef.current) matRef.current.color.set(selectedBlock.color)
+
+    if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+      ref.current.position.set(PLACE_X + 0.5, PLACE_Y + 0.5, PLACE_Z + 0.5)
+      ref.current.visible = true
+    } else {
+      ref.current.visible = false
+    }
+  })
+
+  return (
+    <mesh ref={ref} visible={false} userData={{ isGhost: true }}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshLambertMaterial ref={matRef} color="#888" transparent opacity={0.5} depthWrite={false} />
+    </mesh>
+  )
+}
+
 export default function Scene() {
   const { camera, gl } = useThree()
-  const pitchRef = useRef(0)
-  const yawRef = useRef(0)
-  const isLocked = useEditorStore((s) => s.isPointerLocked)
-  const setLocked = useEditorStore((s) => s.setPointerLocked)
+  const pitch = useRef(0)
+  const yaw = useRef(0)
+  const lockTime = useRef(0)
   const [, getKeys] = useKeyboardControls()
+  const setLocked = useEditorStore((s) => s.setPointerLocked)
+  const setErasing = useEditorStore((s) => s.setErasing)
 
-  // Pointer lock setup
   useEffect(() => {
     const canvas = gl.domElement
 
-    const onClick = () => {
-      canvas.requestPointerLock()
+    const onMouseDown = (e: MouseEvent) => {
+      if (useEditorStore.getState().isPickerOpen) return
+
+      if (!IS_LOCKED) {
+        if (e.button === 0) canvas.requestPointerLock()
+        return
+      }
+
+      if (Date.now() - lockTime.current < 300) return
+
+      if (e.button === 0) {
+        const store = useEditorStore.getState()
+        if (IS_ERASING) {
+          if (ERASE_X !== null && ERASE_Y !== null && ERASE_Z !== null) {
+            store.removeBlock(ERASE_X, ERASE_Y, ERASE_Z)
+          }
+        } else {
+          if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+            store.placeBlock(PLACE_X, PLACE_Y, PLACE_Z)
+          }
+        }
+      }
+
+      if (e.button === 2) {
+        document.exitPointerLock()
+        useEditorStore.getState().setPickerOpen(true)
+      }
     }
 
+    const onContextMenu = (e: MouseEvent) => e.preventDefault()
+
     const onLockChange = () => {
-      setLocked(document.pointerLockElement === canvas)
+      IS_LOCKED = document.pointerLockElement === canvas
+      setLocked(IS_LOCKED)
+      if (IS_LOCKED) lockTime.current = Date.now()
     }
 
     const onMouseMove = (e: MouseEvent) => {
-      if (document.pointerLockElement !== canvas) return
-      yawRef.current -= e.movementX * LOOK_SENSITIVITY
-      pitchRef.current -= e.movementY * LOOK_SENSITIVITY
-      pitchRef.current = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitchRef.current))
+      if (!IS_LOCKED) return
+      yaw.current -= e.movementX * LOOK_SENSITIVITY
+      pitch.current -= e.movementY * LOOK_SENSITIVITY
+      pitch.current = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch.current))
     }
 
-    canvas.addEventListener('click', onClick)
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyR') { IS_ERASING = true; setErasing(true) }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'KeyR') { IS_ERASING = false; setErasing(false) }
+    }
+
+    canvas.addEventListener('mousedown', onMouseDown)
+    canvas.addEventListener('contextmenu', onContextMenu)
     document.addEventListener('pointerlockchange', onLockChange)
     document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keyup', onKeyUp)
 
     return () => {
-      canvas.removeEventListener('click', onClick)
+      canvas.removeEventListener('mousedown', onMouseDown)
+      canvas.removeEventListener('contextmenu', onContextMenu)
       document.removeEventListener('pointerlockchange', onLockChange)
       document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keyup', onKeyUp)
     }
-  }, [gl, setLocked])
+  }, [gl, setLocked, setErasing])
 
-  // Movement + camera rotation each frame
   useFrame((_, delta) => {
-    if (!isLocked) return
-
+    if (!IS_LOCKED) return
     const keys = getKeys()
     const speed = MOVE_SPEED * delta
-
-    // Build direction from yaw only (horizontal movement)
-    const forward = new THREE.Vector3(-Math.sin(yawRef.current), 0, -Math.cos(yawRef.current))
-    const right = new THREE.Vector3(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current))
-
+    const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
+    const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
     if (keys.forward) camera.position.addScaledVector(forward, speed)
     if (keys.backward) camera.position.addScaledVector(forward, -speed)
     if (keys.right) camera.position.addScaledVector(right, speed)
     if (keys.left) camera.position.addScaledVector(right, -speed)
     if (keys.up) camera.position.y += speed
     if (keys.down) camera.position.y -= speed
-
-    // Apply yaw + pitch to camera
-    const euler = new THREE.Euler(pitchRef.current, yawRef.current, 0, 'YXZ')
+    const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ')
     camera.quaternion.setFromEuler(euler)
   })
 
   return (
     <>
-      {/* Minecraft-style sky */}
       <color attach="background" args={['#87CEEB']} />
       <fog attach="fog" args={['#87CEEB', 60, 200]} />
-
-      {/* Lighting */}
       <ambientLight intensity={0.8} />
-      <directionalLight
-        position={[50, 100, 50]}
-        intensity={1.2}
-        castShadow
-      />
-
-      {/* Ground grid */}
+      <directionalLight position={[50, 100, 50]} intensity={1.2} />
       <GroundGrid />
-
-      {/* Hover outline */}
-      <HoverOutline />
-
-      {/* Temp reference block so we have something to look at */}
-      <mesh position={[0, 0.5, 0]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshLambertMaterial color="#7ec850" />
-      </mesh>
-      <mesh position={[0, -0.5, 0]}>
-        <boxGeometry args={[50, 1, 50]} />
-        <meshLambertMaterial color="#8B6914" />
-      </mesh>
+      <Outline />
+      <Ghost />
+      <BlockMesh />
     </>
   )
 }
