@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { KeyboardControls } from '@react-three/drei'
 import Scene from './Scene'
 import Crosshair from './Crosshair'
 import BlockPicker from './BlockPicker'
 import Actionbar from './Actionbar'
+import UndoMessage from './UndoMessage'
 import { useEditorStore } from '@/store/editorStore'
 
 const keyMap = [
@@ -21,6 +23,32 @@ export default function EditorClient() {
   const isLocked = useEditorStore((s) => s.isPointerLocked)
   const isPickerOpen = useEditorStore((s) => s.isPickerOpen)
   const isErasing = useEditorStore((s) => s.isErasing)
+  const setUndoMessage = useEditorStore((s) => s.setUndoMessage)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isPickerOpen) return
+      const isMac = navigator.platform.toUpperCase().includes('MAC')
+      const ctrl = isMac ? e.metaKey : e.ctrlKey
+
+      if (ctrl && e.code === 'KeyZ' && !e.shiftKey) {
+        e.preventDefault()
+        const msg = useEditorStore.getState().undo()
+        if (msg) setUndoMessage(msg)
+        else setUndoMessage('Nothing to undo')
+      }
+
+      if (ctrl && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
+        e.preventDefault()
+        const msg = useEditorStore.getState().redo()
+        if (msg) setUndoMessage(msg)
+        else setUndoMessage('Nothing to redo')
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isPickerOpen, setUndoMessage])
 
   return (
     <div style={{
@@ -42,6 +70,7 @@ export default function EditorClient() {
       <Crosshair />
       <Actionbar />
       <BlockPicker />
+      <UndoMessage />
 
       {/* Erase mode indicator */}
       {isErasing && (
@@ -101,6 +130,10 @@ export default function EditorClient() {
               <span style={{ color: '#fff' }}>1-9</span> select hotbar slot ·{' '}
               <span style={{ color: '#fff' }}>Scroll</span> switch hotbars ·{' '}
               <span style={{ color: '#fff' }}>Right-click slot</span> assign block
+            </p>
+            <p style={{ fontSize: '13px', color: '#aaa' }}>
+              <span style={{ color: '#fff' }}>Cmd+Z</span> undo ·{' '}
+              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo
             </p>
           </div>
         </div>

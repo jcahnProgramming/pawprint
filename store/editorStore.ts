@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import * as THREE from 'three'
 import { BlockDefinition, BLOCKS } from '@/lib/blocks'
 
 export type PlacedBlock = { id: string; color: string }
@@ -10,6 +9,10 @@ export type Actionbar = {
   slots: ActionbarSlot[]
 }
 
+type HistoryEntry =
+  | { type: 'place'; key: string; block: PlacedBlock }
+  | { type: 'remove'; key: string; previous: PlacedBlock | undefined }
+
 function makeActionbar(name: string): Actionbar {
   return {
     id: Math.random().toString(36).slice(2),
@@ -17,6 +20,8 @@ function makeActionbar(name: string): Actionbar {
     slots: Array(9).fill(null),
   }
 }
+
+const MAX_HISTORY = 100
 
 interface EditorState {
   isPointerLocked: boolean
@@ -40,6 +45,13 @@ interface EditorState {
   addActionbar: () => void
   setSlotBlock: (actionbarIndex: number, slotIndex: number, block: BlockDefinition | null) => void
   scrollActionbar: (delta: number) => void
+  // Undo/redo
+  undoStack: HistoryEntry[]
+  redoStack: HistoryEntry[]
+  undo: () => string | null
+  redo: () => string | null
+  undoMessage: string | null
+  setUndoMessage: (msg: string | null) => void
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -50,18 +62,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSelectedBlock: (b) => set({ selectedBlock: b }),
 
   blocks: new Map(),
+
   placeBlock: (x, y, z) => {
     const key = `${x},${y},${z}`
-    const { selectedBlock, blocks } = get()
+    const { selectedBlock, blocks, undoStack } = get()
+    const previous = blocks.get(key)
     const next = new Map(blocks)
     next.set(key, { id: selectedBlock.id, color: selectedBlock.color })
-    set({ blocks: next })
+
+    const entry: HistoryEntry = { type: 'place', key, block: { id: selectedBlock.id, color: selectedBlock.color } }
+    const newStack = [...undoStack, entry].slice(-MAX_HISTORY)
+
+    set({ blocks: next, undoStack: newStack, redoStack: [] })
   },
+
   removeBlock: (x, y, z) => {
     const key = `${x},${y},${z}`
-    const next = new Map(get().blocks)
+    const { blocks, undoStack } = get()
+    const previous = blocks.get(key)
+    if (!previous) return
+
+    const next = new Map(blocks)
     next.delete(key)
-    set({ blocks: next })
+
+    const entry: HistoryEntry = { type: 'remove', key, previous }
+    const newStack = [...undoStack, entry].slice(-MAX_HISTORY)
+
+    set({ blocks: next, undoStack: newStack, redoStack: [] })
   },
 
   isPickerOpen: false,
@@ -118,5 +145,63 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { activeActionbarIndex, actionbars } = get()
     const next = (activeActionbarIndex + delta + actionbars.length) % actionbars.length
     get().setActiveActionbar(next)
+  },
+
+  // Undo/redo
+  undoStack: [],
+  redoStack: [],
+  undoMessage: null,
+  setUndoMessage: (msg) => set({ undoMessage: msg }),
+
+  undo: () => {
+    const { undoStack, redoStack, blocks } = get()
+    if (undoStack.length === 0) return null
+
+    const entry = undoStack[undoStack.length - 1]
+    const newUndo = undoStack.slice(0, -1)
+    const next = new Map(blocks)
+    let message = ''
+
+    if (entry.type === 'place') {
+      next.delete(entry.key)
+      message = `Undid place ${entry.block.id.replace(/_/g, ' ')}`
+    } else {
+      if (entry.previous) next.set(entry.key, entry.previous)
+      message = `Undid remove ${entry.previous?.id.replace(/_/g, ' ') ?? 'block'}`
+    }
+
+    set({
+      blocks: next,
+      undoStack: newUndo,
+      redoStack: [...redoStack, entry],
+    })
+
+    return message
+  },
+
+  redo: () => {
+    const { redoStack, undoStack, blocks } = get()
+    if (redoStack.length === 0) return null
+
+    const entry = redoStack[redoStack.length - 1]
+    const newRedo = redoStack.slice(0, -1)
+    const next = new Map(blocks)
+    let message = ''
+
+    if (entry.type === 'place') {
+      next.set(entry.key, entry.block)
+      message = `Redid place ${entry.block.id.replace(/_/g, ' ')}`
+    } else {
+      next.delete(entry.key)
+      message = `Redid remove ${entry.previous?.id.replace(/_/g, ' ') ?? 'block'}`
+    }
+
+    set({
+      blocks: next,
+      redoStack: newRedo,
+      undoStack: [...undoStack, entry],
+    })
+
+    return message
   },
 }))
