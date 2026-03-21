@@ -3,6 +3,20 @@ import * as THREE from 'three'
 import { BlockDefinition, BLOCKS } from '@/lib/blocks'
 
 export type PlacedBlock = { id: string; color: string }
+export type ActionbarSlot = BlockDefinition | null
+export type Actionbar = {
+  id: string
+  name: string
+  slots: ActionbarSlot[]
+}
+
+function makeActionbar(name: string): Actionbar {
+  return {
+    id: Math.random().toString(36).slice(2),
+    name,
+    slots: Array(9).fill(null),
+  }
+}
 
 interface EditorState {
   isPointerLocked: boolean
@@ -14,8 +28,18 @@ interface EditorState {
   removeBlock: (x: number, y: number, z: number) => void
   isPickerOpen: boolean
   setPickerOpen: (v: boolean) => void
+  pickerTargetSlot: number | null
+  setPickerTargetSlot: (slot: number | null) => void
   isErasing: boolean
   setErasing: (v: boolean) => void
+  actionbars: Actionbar[]
+  activeActionbarIndex: number
+  activeSlotIndex: number
+  setActiveSlot: (slot: number) => void
+  setActiveActionbar: (index: number) => void
+  addActionbar: () => void
+  setSlotBlock: (actionbarIndex: number, slotIndex: number, block: BlockDefinition | null) => void
+  scrollActionbar: (delta: number) => void
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -43,6 +67,56 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   isPickerOpen: false,
   setPickerOpen: (v) => set({ isPickerOpen: v }),
 
+  pickerTargetSlot: null,
+  setPickerTargetSlot: (slot) => set({ pickerTargetSlot: slot }),
+
   isErasing: false,
   setErasing: (v) => set({ isErasing: v }),
+
+  actionbars: [makeActionbar('Hotbar 1')],
+  activeActionbarIndex: 0,
+  activeSlotIndex: 0,
+
+  setActiveSlot: (slot) => {
+    const { actionbars, activeActionbarIndex } = get()
+    const bar = actionbars[activeActionbarIndex]
+    if (!bar) return
+    const block = bar.slots[slot]
+    set({ activeSlotIndex: slot })
+    if (block) set({ selectedBlock: block })
+  },
+
+  setActiveActionbar: (index) => {
+    const { actionbars } = get()
+    if (index < 0 || index >= actionbars.length) return
+    const bar = actionbars[index]
+    const block = bar.slots[get().activeSlotIndex]
+    set({ activeActionbarIndex: index })
+    if (block) set({ selectedBlock: block })
+  },
+
+  addActionbar: () => {
+    const { actionbars } = get()
+    set({ actionbars: [...actionbars, makeActionbar(`Hotbar ${actionbars.length + 1}`)] })
+  },
+
+  setSlotBlock: (actionbarIndex, slotIndex, block) => {
+    const { actionbars, activeActionbarIndex, activeSlotIndex } = get()
+    const next = actionbars.map((bar, i) => {
+      if (i !== actionbarIndex) return bar
+      const slots = [...bar.slots]
+      slots[slotIndex] = block
+      return { ...bar, slots }
+    })
+    set({ actionbars: next })
+    if (actionbarIndex === activeActionbarIndex && slotIndex === activeSlotIndex && block) {
+      set({ selectedBlock: block })
+    }
+  },
+
+  scrollActionbar: (delta) => {
+    const { activeActionbarIndex, actionbars } = get()
+    const next = (activeActionbarIndex + delta + actionbars.length) % actionbars.length
+    get().setActiveActionbar(next)
+  },
 }))

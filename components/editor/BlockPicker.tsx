@@ -7,8 +7,9 @@ import { useEditorStore } from '@/store/editorStore'
 export default function BlockPicker() {
   const isOpen = useEditorStore((s) => s.isPickerOpen)
   const setPickerOpen = useEditorStore((s) => s.setPickerOpen)
-  const setSelectedBlock = useEditorStore((s) => s.setSelectedBlock)
   const selectedBlock = useEditorStore((s) => s.selectedBlock)
+  const pickerTargetSlot = useEditorStore((s) => s.pickerTargetSlot)
+  const setPickerTargetSlot = useEditorStore((s) => s.setPickerTargetSlot)
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<BlockCategory | 'All'>('All')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -24,11 +25,12 @@ export default function BlockPicker() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Escape' && isOpen) {
         setPickerOpen(false)
+        setPickerTargetSlot(null)
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [isOpen, setPickerOpen])
+  }, [isOpen, setPickerOpen, setPickerTargetSlot])
 
   if (!isOpen) return null
 
@@ -39,7 +41,13 @@ export default function BlockPicker() {
   })
 
   const handleSelect = (block: typeof BLOCKS[0]) => {
-    setSelectedBlock(block)
+    const store = useEditorStore.getState()
+    if (pickerTargetSlot !== null) {
+      store.setSlotBlock(store.activeActionbarIndex, pickerTargetSlot, block)
+      store.setPickerTargetSlot(null)
+    } else {
+      store.setSelectedBlock(block)
+    }
     setPickerOpen(false)
   }
 
@@ -55,7 +63,10 @@ export default function BlockPicker() {
         background: 'rgba(0,0,0,0.5)',
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) setPickerOpen(false)
+        if (e.target === e.currentTarget) {
+          setPickerOpen(false)
+          setPickerTargetSlot(null)
+        }
       }}
     >
       <div style={{
@@ -71,15 +82,40 @@ export default function BlockPicker() {
       }}>
         {/* Header */}
         <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #2a2a3e' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+          }}>
+            <span style={{
+              color: '#fff',
+              fontFamily: 'monospace',
+              fontSize: '16px',
+              fontWeight: 'bold',
+            }}>
               🐾 Block Picker
+              {pickerTargetSlot !== null && (
+                <span style={{ color: '#4CAF50', fontSize: '13px', marginLeft: '10px' }}>
+                  → Slot {pickerTargetSlot + 1}
+                </span>
+              )}
             </span>
             <button
-              onClick={() => setPickerOpen(false)}
-              style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '18px' }}
+              onClick={() => {
+                setPickerOpen(false)
+                setPickerTargetSlot(null)
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#888',
+                cursor: 'pointer',
+                fontSize: '18px',
+              }}
             >✕</button>
           </div>
+
           {/* Search */}
           <input
             ref={searchRef}
@@ -141,8 +177,16 @@ export default function BlockPicker() {
           gap: '6px',
         }}>
           {filtered.map(block => (
-            <button
+            <div
               key={block.id}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(
+                  'application/pawprint-block',
+                  JSON.stringify(block)
+                )
+                e.dataTransfer.effectAllowed = 'copy'
+              }}
               onClick={() => handleSelect(block)}
               style={{
                 display: 'flex',
@@ -150,14 +194,20 @@ export default function BlockPicker() {
                 gap: '8px',
                 padding: '8px 10px',
                 background: selectedBlock.id === block.id ? '#2a3a2a' : '#0f0f1e',
-                border: selectedBlock.id === block.id ? '1px solid #4CAF50' : '1px solid #222',
+                border: selectedBlock.id === block.id
+                  ? '1px solid #4CAF50'
+                  : '1px solid #222',
                 borderRadius: '6px',
-                cursor: 'pointer',
+                cursor: 'grab',
                 textAlign: 'left',
-                transition: 'background 0.1s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#1e2e1e')}
-              onMouseLeave={e => (e.currentTarget.style.background = selectedBlock.id === block.id ? '#2a3a2a' : '#0f0f1e')}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.background = '#1e2e1e'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.background =
+                  selectedBlock.id === block.id ? '#2a3a2a' : '#0f0f1e'
+              }}
             >
               <div style={{
                 width: '20px',
@@ -178,10 +228,17 @@ export default function BlockPicker() {
               }}>
                 {block.name}
               </span>
-            </button>
+            </div>
           ))}
+
           {filtered.length === 0 && (
-            <div style={{ gridColumn: '1/-1', color: '#666', fontFamily: 'monospace', textAlign: 'center', padding: '32px' }}>
+            <div style={{
+              gridColumn: '1/-1',
+              color: '#666',
+              fontFamily: 'monospace',
+              textAlign: 'center',
+              padding: '32px',
+            }}>
               No blocks found
             </div>
           )}
@@ -195,12 +252,27 @@ export default function BlockPicker() {
           alignItems: 'center',
           gap: '8px',
         }}>
-          <div style={{ width: '16px', height: '16px', borderRadius: '3px', background: selectedBlock.color, border: '1px solid rgba(255,255,255,0.2)' }} />
-          <span style={{ color: '#aaa', fontFamily: 'monospace', fontSize: '12px' }}>
+          <div style={{
+            width: '16px',
+            height: '16px',
+            borderRadius: '3px',
+            background: selectedBlock.color,
+            border: '1px solid rgba(255,255,255,0.2)',
+          }} />
+          <span style={{
+            color: '#aaa',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+          }}>
             Selected: <span style={{ color: '#fff' }}>{selectedBlock.name}</span>
           </span>
-          <span style={{ color: '#555', fontFamily: 'monospace', fontSize: '11px', marginLeft: 'auto' }}>
-            {filtered.length} blocks · Esc to close
+          <span style={{
+            color: '#555',
+            fontFamily: 'monospace',
+            fontSize: '11px',
+            marginLeft: 'auto',
+          }}>
+            {filtered.length} blocks · Drag to hotbar · Esc to close
           </span>
         </div>
       </div>
