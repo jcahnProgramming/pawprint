@@ -8,6 +8,7 @@ import Crosshair from './Crosshair'
 import BlockPicker from './BlockPicker'
 import Actionbar from './Actionbar'
 import UndoMessage from './UndoMessage'
+import F3Hud from './F3Hud'
 import { useEditorStore } from '@/store/editorStore'
 
 const keyMap = [
@@ -71,6 +72,7 @@ export default function EditorClient() {
       <Actionbar />
       <BlockPicker />
       <UndoMessage />
+      <F3Hud />
 
       {/* Erase mode indicator */}
       {isErasing && (
@@ -133,7 +135,8 @@ export default function EditorClient() {
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
               <span style={{ color: '#fff' }}>Cmd+Z</span> undo ·{' '}
-              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo
+              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo ·{' '}
+              <span style={{ color: '#fff' }}>F3</span> debug HUD
             </p>
           </div>
         </div>
