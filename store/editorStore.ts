@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { BlockDefinition, BLOCKS } from '@/lib/blocks'
+import { ProjectRecord, saveProject, getAllProjects, deleteProject } from '@/lib/projectDB'
 
 export type PlacedBlock = { id: string; color: string }
 export type ActionbarSlot = BlockDefinition | null
@@ -55,13 +56,23 @@ interface EditorState {
   redo: () => string | null
   undoMessage: string | null
   setUndoMessage: (msg: string | null) => void
-  // Tools
   activeTool: ToolType
   setActiveTool: (tool: ToolType) => void
   toolPointA: { x: number; y: number; z: number } | null
   setToolPointA: (p: { x: number; y: number; z: number } | null) => void
   clipboard: { blocks: Map<string, PlacedBlock>; size: { x: number; y: number; z: number } } | null
   setClipboard: (c: { blocks: Map<string, PlacedBlock>; size: { x: number; y: number; z: number } } | null) => void
+  // Project management
+  currentProjectId: string | null
+  currentProjectName: string
+  setCurrentProject: (id: string | null, name: string) => void
+  projects: ProjectRecord[]
+  setProjects: (projects: ProjectRecord[]) => void
+  isProjectPanelOpen: boolean
+  setProjectPanelOpen: (v: boolean) => void
+  saveCurrentProject: () => Promise<void>
+  loadProject: (project: ProjectRecord) => void
+  refreshProjects: () => Promise<void>
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -224,4 +235,52 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setToolPointA: (p) => set({ toolPointA: p }),
   clipboard: null,
   setClipboard: (c) => set({ clipboard: c }),
+
+  // Project management
+  currentProjectId: null,
+  currentProjectName: 'Untitled Build',
+  setCurrentProject: (id, name) => set({ currentProjectId: id, currentProjectName: name }),
+
+  projects: [],
+  setProjects: (projects) => set({ projects }),
+
+  isProjectPanelOpen: false,
+  setProjectPanelOpen: (v) => set({ isProjectPanelOpen: v }),
+
+  saveCurrentProject: async () => {
+    const { blocks, currentProjectId, currentProjectName } = get()
+    const id = currentProjectId ?? Math.random().toString(36).slice(2)
+    const blocksObj: Record<string, PlacedBlock> = {}
+    blocks.forEach((block, key) => { blocksObj[key] = block })
+    const project: ProjectRecord = {
+      id,
+      name: currentProjectName,
+      createdAt: currentProjectId ? (get().projects.find(p => p.id === id)?.createdAt ?? Date.now()) : Date.now(),
+      updatedAt: Date.now(),
+      blockCount: blocks.size,
+      blocks: blocksObj,
+    }
+    await saveProject(project)
+    set({ currentProjectId: id })
+    await get().refreshProjects()
+  },
+
+  loadProject: (project) => {
+    const blocks = new Map<string, PlacedBlock>()
+    Object.entries(project.blocks).forEach(([key, block]) => {
+      blocks.set(key, block)
+    })
+    set({
+      blocks,
+      currentProjectId: project.id,
+      currentProjectName: project.name,
+      undoStack: [],
+      redoStack: [],
+    })
+  },
+
+  refreshProjects: async () => {
+    const projects = await getAllProjects()
+    set({ projects })
+  },
 }))

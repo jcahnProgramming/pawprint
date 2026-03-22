@@ -10,6 +10,8 @@ import Actionbar from './Actionbar'
 import UndoMessage from './UndoMessage'
 import F3Hud from './F3Hud'
 import Toolbar from './Toolbar'
+import MenuBar from './MenuBar'
+import ProjectPanel from './ProjectPanel'
 import { useEditorStore } from '@/store/editorStore'
 
 const keyMap = [
@@ -26,31 +28,52 @@ export default function EditorClient() {
   const isPickerOpen = useEditorStore((s) => s.isPickerOpen)
   const isErasing = useEditorStore((s) => s.isErasing)
   const setUndoMessage = useEditorStore((s) => s.setUndoMessage)
+  const setProjectPanelOpen = useEditorStore((s) => s.setProjectPanelOpen)
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (isPickerOpen) return
+    const onKeyDown = async (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().includes('MAC')
       const ctrl = isMac ? e.metaKey : e.ctrlKey
 
+      // Ctrl+S — save
+      if (ctrl && e.code === 'KeyS') {
+        e.preventDefault()
+        const store = useEditorStore.getState()
+        if (!store.currentProjectId) {
+          const name = prompt('Project name:', store.currentProjectName)
+          if (!name) return
+          useEditorStore.setState({ currentProjectName: name })
+        }
+        await store.saveCurrentProject()
+        store.setUndoMessage('Project saved!')
+        return
+      }
+
+      // Ctrl+P — projects panel
+      if (ctrl && e.code === 'KeyP') {
+        e.preventDefault()
+        setProjectPanelOpen(true)
+        return
+      }
+
+      if (isPickerOpen) return
+
+      // Undo/redo
       if (ctrl && e.code === 'KeyZ' && !e.shiftKey) {
         e.preventDefault()
         const msg = useEditorStore.getState().undo()
-        if (msg) setUndoMessage(msg)
-        else setUndoMessage('Nothing to undo')
+        setUndoMessage(msg ?? 'Nothing to undo')
       }
-
       if (ctrl && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
         e.preventDefault()
         const msg = useEditorStore.getState().redo()
-        if (msg) setUndoMessage(msg)
-        else setUndoMessage('Nothing to redo')
+        setUndoMessage(msg ?? 'Nothing to redo')
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isPickerOpen, setUndoMessage])
+  }, [isPickerOpen, setUndoMessage, setProjectPanelOpen])
 
   return (
     <div style={{
@@ -59,15 +82,27 @@ export default function EditorClient() {
       position: 'relative',
       cursor: isLocked ? 'none' : 'default',
     }}>
-      <KeyboardControls map={keyMap}>
-        <Canvas
-          style={{ width: '100%', height: '100%' }}
-          gl={{ antialias: true }}
-          camera={{ fov: 75, near: 0.1, far: 1000, position: [0, 5, 10] }}
-        >
-          <Scene />
-        </Canvas>
-      </KeyboardControls>
+      {/* Menu bar */}
+      <MenuBar />
+
+      {/* Canvas — offset top by menu bar height */}
+      <div style={{
+        position: 'absolute',
+        top: '36px',
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}>
+        <KeyboardControls map={keyMap}>
+          <Canvas
+            style={{ width: '100%', height: '100%' }}
+            gl={{ antialias: true }}
+            camera={{ fov: 75, near: 0.1, far: 1000, position: [0, 5, 10] }}
+          >
+            <Scene />
+          </Canvas>
+        </KeyboardControls>
+      </div>
 
       <Crosshair />
       <Actionbar />
@@ -75,12 +110,13 @@ export default function EditorClient() {
       <UndoMessage />
       <F3Hud />
       <Toolbar />
+      <ProjectPanel />
 
       {/* Erase mode indicator */}
       {isErasing && (
         <div style={{
           position: 'absolute',
-          top: '16px',
+          top: '52px',
           left: '50%',
           transform: 'translateX(-50%)',
           background: 'rgba(244,67,54,0.85)',
@@ -100,7 +136,10 @@ export default function EditorClient() {
       {!isLocked && !isPickerOpen && (
         <div style={{
           position: 'absolute',
-          inset: 0,
+          top: '36px',
+          left: 0,
+          right: 0,
+          bottom: 0,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -132,13 +171,15 @@ export default function EditorClient() {
               <span style={{ color: '#fff' }}>F3</span> debug HUD
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
-              <span style={{ color: '#fff' }}>1-9</span> hotbar slots ·{' '}
-              <span style={{ color: '#fff' }}>Scroll</span> switch hotbars ·{' '}
+              <span style={{ color: '#fff' }}>1-9</span> hotbar ·{' '}
+              <span style={{ color: '#fff' }}>Scroll</span> switch bars ·{' '}
               <span style={{ color: '#fff' }}>Right-click slot</span> assign
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
+              <span style={{ color: '#fff' }}>Cmd+S</span> save ·{' '}
               <span style={{ color: '#fff' }}>Cmd+Z</span> undo ·{' '}
-              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo
+              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo ·{' '}
+              <span style={{ color: '#fff' }}>Cmd+P</span> projects
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
               <span style={{ color: '#fff' }}>B</span> place ·{' '}
