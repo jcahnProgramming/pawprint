@@ -12,7 +12,9 @@
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "idb": "^8.0.3",
+    "nbt": "^0.8.1",
     "next": "14.2.35",
+    "pako": "^2.1.0",
     "react": "^18",
     "react-dom": "^18",
     "three": "^0.183.2",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pako": "^2.0.4",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/three": "^0.183.1",

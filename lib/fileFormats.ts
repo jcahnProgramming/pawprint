@@ -1,10 +1,20 @@
+import pako from 'pako'
 import { PlacedBlock } from '@/store/editorStore'
-import { BLOCK_MAP } from '@/lib/blocks'
+import { exportLitematic as exportLitematicNBT } from './litematic'
 
 export type ImportResult = {
   blocks: Map<string, PlacedBlock>
   name: string
   error?: string
+}
+
+export type ExportFormat = 'pawprint' | 'litematic' | 'schem' | 'schematic'
+
+export const FORMAT_LABELS: Record<ExportFormat, string> = {
+  pawprint: '.pawprint',
+  litematic: '.litematic',
+  schem: '.schem',
+  schematic: '.schematic',
 }
 
 // ── .pawprint (native JSON) ──────────────────────────────────────────────────
@@ -32,20 +42,29 @@ export function importPawPrint(json: string): ImportResult {
   }
 }
 
-// ── .litematic (stub) ────────────────────────────────────────────────────────
+// ── .litematic ───────────────────────────────────────────────────────────────
 
 export function exportLitematic(
   blocks: Map<string, PlacedBlock>,
-  name: string
-): { error: string } {
-  return { error: '.litematic export coming soon — use .pawprint for now' }
+  name: string,
+  mcVersion: '1.21.4' | '1.20.4' = '1.21.4'
+): { data?: Blob; filename?: string; error?: string } {
+  try {
+    const bytes = exportLitematicNBT(blocks, name, mcVersion)
+    return {
+      data: new Blob([bytes], { type: 'application/octet-stream' }),
+      filename: `${name.replace(/[^a-z0-9_\-]/gi, '_')}.litematic`,
+    }
+  } catch (e) {
+    return { error: String(e) }
+  }
 }
 
 export function importLitematic(buffer: ArrayBuffer): ImportResult {
   return {
     blocks: new Map(),
     name: 'Litematic Import',
-    error: '.litematic import coming soon — convert to .pawprint first',
+    error: '.litematic import coming soon — use .pawprint for now',
   }
 }
 
@@ -62,7 +81,7 @@ export function importSchem(buffer: ArrayBuffer): ImportResult {
   return {
     blocks: new Map(),
     name: 'Schem Import',
-    error: '.schem import coming soon — convert to .pawprint first',
+    error: '.schem import coming soon',
   }
 }
 
@@ -79,7 +98,7 @@ export function importSchematic(buffer: ArrayBuffer): ImportResult {
   return {
     blocks: new Map(),
     name: 'Schematic Import',
-    error: '.schematic import coming soon — convert to .pawprint first',
+    error: '.schematic import coming soon',
   }
 }
 
@@ -96,7 +115,6 @@ export async function importFromFile(file: File): Promise<ImportResult> {
   }
 
   const buffer = await file.arrayBuffer()
-
   if (ext === 'litematic') return { ...importLitematic(buffer), name: nameWithoutExt }
   if (ext === 'schem') return { ...importSchem(buffer), name: nameWithoutExt }
   if (ext === 'schematic') return { ...importSchematic(buffer), name: nameWithoutExt }
@@ -110,13 +128,12 @@ export async function importFromFile(file: File): Promise<ImportResult> {
 
 // ── Universal file exporter ──────────────────────────────────────────────────
 
-export type ExportFormat = 'pawprint' | 'litematic' | 'schem' | 'schematic'
-
 export function exportToFile(
   blocks: Map<string, PlacedBlock>,
   name: string,
-  format: ExportFormat
-): { data?: string | Blob; filename?: string; error?: string } {
+  format: ExportFormat,
+  mcVersion: '1.21.4' | '1.20.4' = '1.21.4'
+): { data?: Blob; filename?: string; error?: string } {
   const safeName = name.replace(/[^a-z0-9_\-]/gi, '_')
 
   if (format === 'pawprint') {
@@ -128,8 +145,7 @@ export function exportToFile(
   }
 
   if (format === 'litematic') {
-    const result = exportLitematic(blocks, name)
-    return { error: result.error }
+    return exportLitematic(blocks, name, mcVersion)
   }
 
   if (format === 'schem') {
