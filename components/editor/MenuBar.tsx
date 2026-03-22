@@ -9,6 +9,9 @@ export default function MenuBar() {
   const saveCurrentProject = useEditorStore((s) => s.saveCurrentProject)
   const setUndoMessage = useEditorStore((s) => s.setUndoMessage)
   const blocks = useEditorStore((s) => s.blocks)
+  const selectedVariant = useEditorStore((s) => s.selectedVariant)
+  const selectedBlock = useEditorStore((s) => s.selectedBlock)
+  const setVariantMenuOpen = useEditorStore((s) => s.setVariantMenuOpen)
 
   const handleSave = async () => {
     const store = useEditorStore.getState()
@@ -28,7 +31,7 @@ export default function MenuBar() {
       left: 0,
       right: 0,
       height: '36px',
-      background: 'rgba(0,0,0,0.8)',
+      background: 'rgba(0,0,0,0.85)',
       borderBottom: '1px solid #222',
       display: 'flex',
       alignItems: 'center',
@@ -38,38 +41,99 @@ export default function MenuBar() {
       fontFamily: 'monospace',
       fontSize: '12px',
       pointerEvents: 'auto',
+      userSelect: 'none',
     }}>
       {/* Logo */}
-      <span style={{ color: '#4CAF50', fontWeight: 'bold', marginRight: '8px' }}>🐾</span>
+      <span style={{ color: '#4CAF50', fontWeight: 'bold', marginRight: '4px' }}>🐾</span>
 
-      {/* Projects button */}
+      {/* Projects */}
       <button
         onClick={() => setProjectPanelOpen(true)}
         style={menuBtn}
+        title="Open project library (Cmd+P)"
       >
         📁 Projects
       </button>
 
       {/* Save */}
-      <button onClick={handleSave} style={menuBtn}>
+      <button
+        onClick={handleSave}
+        style={menuBtn}
+        title="Save current project (Cmd+S)"
+      >
         💾 Save
       </button>
 
-      {/* Divider */}
+      {/* Variant button */}
+      <button
+        onClick={() => {
+          document.exitPointerLock()
+          setVariantMenuOpen(true)
+        }}
+        style={{
+          ...menuBtn,
+          color: selectedVariant !== 'full' ? '#4CAF50' : '#ccc',
+          borderColor: selectedVariant !== 'full' ? '#4CAF50' : '#333',
+        }}
+        title="Block variants — stairs, slabs, fences... (Q)"
+      >
+        🧱 Variants
+        {selectedVariant !== 'full' && (
+          <span style={{
+            marginLeft: '4px',
+            color: '#4CAF50',
+            fontSize: '10px',
+          }}>
+            [{selectedVariant.replace(/_/g, ' ')}]
+          </span>
+        )}
+      </button>
+
+      {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Current project name */}
+      {/* Selected block */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        color: '#666',
+        fontSize: '11px',
+      }}>
+        <div style={{
+          width: '12px',
+          height: '12px',
+          borderRadius: '2px',
+          background: selectedBlock.color,
+          border: '1px solid rgba(255,255,255,0.15)',
+          flexShrink: 0,
+        }} />
+        <span style={{ color: '#888' }}>{selectedBlock.name}</span>
+      </div>
+
+      {/* Divider */}
+      <div style={{ width: '1px', height: '16px', background: '#333', margin: '0 8px' }} />
+
+      {/* Project name */}
       <div style={{
         color: currentProjectId ? '#aaa' : '#555',
         fontSize: '12px',
         fontStyle: currentProjectId ? 'normal' : 'italic',
+        maxWidth: '180px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
       }}>
         {currentProjectName}
         {!currentProjectId && ' (unsaved)'}
       </div>
 
       {/* Block count */}
-      <div style={{ color: '#444', marginLeft: '12px' }}>
+      <div style={{
+        color: '#444',
+        marginLeft: '12px',
+        fontSize: '11px',
+      }}>
         {blocks.size.toLocaleString()} blocks
       </div>
     </div>
@@ -85,4 +149,8 @@ const menuBtn: React.CSSProperties = {
   fontFamily: 'monospace',
   fontSize: '12px',
   padding: '3px 10px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  whiteSpace: 'nowrap',
 }

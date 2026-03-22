@@ -12,6 +12,7 @@ import F3Hud from './F3Hud'
 import Toolbar from './Toolbar'
 import MenuBar from './MenuBar'
 import ProjectPanel from './ProjectPanel'
+import VariantMenu from './VariantMenu'
 import { useEditorStore } from '@/store/editorStore'
 
 const keyMap = [
@@ -58,12 +59,14 @@ export default function EditorClient() {
 
       if (isPickerOpen) return
 
-      // Undo/redo
+      // Undo
       if (ctrl && e.code === 'KeyZ' && !e.shiftKey) {
         e.preventDefault()
         const msg = useEditorStore.getState().undo()
         setUndoMessage(msg ?? 'Nothing to undo')
       }
+
+      // Redo
       if (ctrl && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
         e.preventDefault()
         const msg = useEditorStore.getState().redo()
@@ -85,7 +88,7 @@ export default function EditorClient() {
       {/* Menu bar */}
       <MenuBar />
 
-      {/* Canvas — offset top by menu bar height */}
+      {/* Canvas — offset by menu bar */}
       <div style={{
         position: 'absolute',
         top: '36px',
@@ -104,6 +107,7 @@ export default function EditorClient() {
         </KeyboardControls>
       </div>
 
+      {/* HUD Layer */}
       <Crosshair />
       <Actionbar />
       <BlockPicker />
@@ -111,6 +115,7 @@ export default function EditorClient() {
       <F3Hud />
       <Toolbar />
       <ProjectPanel />
+      <VariantMenu />
 
       {/* Erase mode indicator */}
       {isErasing && (
@@ -189,6 +194,9 @@ export default function EditorClient() {
               <span style={{ color: '#fff' }}>C</span> copy ·{' '}
               <span style={{ color: '#fff' }}>V</span> paste ·{' '}
               <span style={{ color: '#fff' }}>M</span> mirror
+            </p>
+            <p style={{ fontSize: '13px', color: '#aaa' }}>
+              <span style={{ color: '#fff' }}>Q</span> block variants (stairs, slabs, fences...)
             </p>
           </div>
         </div>

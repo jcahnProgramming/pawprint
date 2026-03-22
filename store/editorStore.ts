@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { BlockDefinition, BLOCKS } from '@/lib/blocks'
 import { ProjectRecord, saveProject, getAllProjects, deleteProject } from '@/lib/projectDB'
+import { VariantType } from '@/lib/blockVariants'
 
-export type PlacedBlock = { id: string; color: string }
+export type PlacedBlock = { id: string; color: string; variantType: VariantType }
 export type ActionbarSlot = BlockDefinition | null
 export type Actionbar = {
   id: string
@@ -32,6 +33,10 @@ interface EditorState {
   setPointerLocked: (v: boolean) => void
   selectedBlock: BlockDefinition
   setSelectedBlock: (b: BlockDefinition) => void
+  selectedVariant: VariantType
+  setSelectedVariant: (v: VariantType) => void
+  isVariantMenuOpen: boolean
+  setVariantMenuOpen: (v: boolean) => void
   blocks: Map<string, PlacedBlock>
   placeBlock: (x: number, y: number, z: number) => void
   removeBlock: (x: number, y: number, z: number) => void
@@ -62,7 +67,6 @@ interface EditorState {
   setToolPointA: (p: { x: number; y: number; z: number } | null) => void
   clipboard: { blocks: Map<string, PlacedBlock>; size: { x: number; y: number; z: number } } | null
   setClipboard: (c: { blocks: Map<string, PlacedBlock>; size: { x: number; y: number; z: number } } | null) => void
-  // Project management
   currentProjectId: string | null
   currentProjectName: string
   setCurrentProject: (id: string | null, name: string) => void
@@ -82,14 +86,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedBlock: BLOCKS[0],
   setSelectedBlock: (b) => set({ selectedBlock: b }),
 
+  selectedVariant: 'full',
+  setSelectedVariant: (v) => set({ selectedVariant: v }),
+
+  isVariantMenuOpen: false,
+  setVariantMenuOpen: (v) => set({ isVariantMenuOpen: v }),
+
   blocks: new Map(),
 
   placeBlock: (x, y, z) => {
     const key = `${x},${y},${z}`
-    const { selectedBlock, blocks, undoStack } = get()
+    const { selectedBlock, selectedVariant, blocks, undoStack } = get()
     const next = new Map(blocks)
-    next.set(key, { id: selectedBlock.id, color: selectedBlock.color })
-    const entry: HistoryEntry = { type: 'place', key, block: { id: selectedBlock.id, color: selectedBlock.color } }
+    next.set(key, { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant })
+    const entry: HistoryEntry = {
+      type: 'place',
+      key,
+      block: { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant },
+    }
     set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
   },
 
@@ -105,7 +119,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   bulkPlace: (positions) => {
-    const { selectedBlock, blocks, undoStack } = get()
+    const { selectedBlock, selectedVariant, blocks, undoStack } = get()
     const next = new Map(blocks)
     const placed = new Map<string, PlacedBlock>()
     const removed = new Map<string, PlacedBlock>()
@@ -113,8 +127,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const key = `${x},${y},${z}`
       const existing = next.get(key)
       if (existing) removed.set(key, existing)
-      next.set(key, { id: selectedBlock.id, color: selectedBlock.color })
-      placed.set(key, { id: selectedBlock.id, color: selectedBlock.color })
+      next.set(key, { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant })
+      placed.set(key, { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant })
     })
     const entry: HistoryEntry = { type: 'bulk', placed, removed }
     set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
@@ -188,7 +202,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newUndo = undoStack.slice(0, -1)
     const next = new Map(blocks)
     let message = ''
-
     if (entry.type === 'place') {
       next.delete(entry.key)
       message = `Undid place ${entry.block.id.replace(/_/g, ' ')}`
@@ -200,7 +213,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       entry.removed.forEach((block, key) => next.set(key, block))
       message = `Undid bulk operation (${entry.placed.size} blocks)`
     }
-
     set({ blocks: next, undoStack: newUndo, redoStack: [...redoStack, entry] })
     return message
   },
@@ -212,7 +224,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newRedo = redoStack.slice(0, -1)
     const next = new Map(blocks)
     let message = ''
-
     if (entry.type === 'place') {
       next.set(entry.key, entry.block)
       message = `Redid place ${entry.block.id.replace(/_/g, ' ')}`
@@ -224,7 +235,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       entry.removed.forEach((_, key) => next.delete(key))
       message = `Redid bulk operation (${entry.placed.size} blocks)`
     }
-
     set({ blocks: next, redoStack: newRedo, undoStack: [...undoStack, entry] })
     return message
   },
@@ -236,7 +246,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clipboard: null,
   setClipboard: (c) => set({ clipboard: c }),
 
-  // Project management
   currentProjectId: null,
   currentProjectName: 'Untitled Build',
   setCurrentProject: (id, name) => set({ currentProjectId: id, currentProjectName: name }),
@@ -255,7 +264,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const project: ProjectRecord = {
       id,
       name: currentProjectName,
-      createdAt: currentProjectId ? (get().projects.find(p => p.id === id)?.createdAt ?? Date.now()) : Date.now(),
+      createdAt: currentProjectId
+        ? (get().projects.find(p => p.id === id)?.createdAt ?? Date.now())
+        : Date.now(),
       updatedAt: Date.now(),
       blockCount: blocks.size,
       blocks: blocksObj,
@@ -268,7 +279,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   loadProject: (project) => {
     const blocks = new Map<string, PlacedBlock>()
     Object.entries(project.blocks).forEach(([key, block]) => {
-      blocks.set(key, block)
+      blocks.set(key, {
+        ...block,
+        variantType: (block as PlacedBlock).variantType ?? 'full',
+      })
     })
     set({
       blocks,
