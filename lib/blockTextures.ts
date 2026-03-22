@@ -1,0 +1,336 @@
+// Maps block IDs to their texture files
+// Supports per-face texture overrides (top/bottom/side)
+// Falls back to the block color if texture not found
+
+export type FaceTextures = {
+  top: string
+  bottom: string
+  north: string
+  south: string
+  east: string
+  west: string
+}
+
+type TextureSpec =
+  | string                          // all faces same
+  | { all: string }                 // all faces same
+  | { top: string; bottom: string; side: string }  // top/bottom/side
+  | { top: string; bottom: string; north: string; south: string; east: string; west: string }
+
+function resolve(spec: TextureSpec): FaceTextures {
+  if (typeof spec === 'string') {
+    return { top: spec, bottom: spec, north: spec, south: spec, east: spec, west: spec }
+  }
+  if ('all' in spec) {
+    return { top: spec.all, bottom: spec.all, north: spec.all, south: spec.all, east: spec.all, west: spec.all }
+  }
+  if ('side' in spec) {
+    return { top: spec.top, bottom: spec.bottom, north: spec.side, south: spec.side, east: spec.side, west: spec.side }
+  }
+  return spec
+}
+
+// Block ID → texture spec
+// Texture names match filenames in public/textures/blocks/
+const TEXTURE_MAP: Record<string, TextureSpec> = {
+  // Stone
+  stone: 'stone',
+  granite: 'granite',
+  polished_granite: 'polished_granite',
+  diorite: 'diorite',
+  polished_diorite: 'polished_diorite',
+  andesite: 'andesite',
+  polished_andesite: 'polished_andesite',
+  cobblestone: 'cobblestone',
+  mossy_cobblestone: 'mossy_cobblestone',
+  stone_bricks: 'stone_bricks',
+  mossy_stone_bricks: 'mossy_stone_bricks',
+  cracked_stone_bricks: 'cracked_stone_bricks',
+  chiseled_stone_bricks: 'chiseled_stone_bricks',
+  deepslate: { top: 'deepslate_top', bottom: 'deepslate_top', side: 'deepslate' },
+  cobbled_deepslate: 'cobbled_deepslate',
+  polished_deepslate: 'polished_deepslate',
+  deepslate_bricks: 'deepslate_bricks',
+  deepslate_tiles: 'deepslate_tiles',
+  chiseled_deepslate: 'chiseled_deepslate',
+  cracked_deepslate_bricks: 'cracked_deepslate_bricks',
+  cracked_deepslate_tiles: 'cracked_deepslate_tiles',
+  bricks: 'bricks',
+  mud_bricks: 'mud_bricks',
+  sandstone: { top: 'sandstone_top', bottom: 'sandstone_bottom', side: 'sandstone' },
+  smooth_sandstone: { top: 'sandstone_top', bottom: 'sandstone_top', side: 'smooth_sandstone' },
+  chiseled_sandstone: 'chiseled_sandstone',
+  cut_sandstone: 'cut_sandstone',
+  red_sandstone: { top: 'red_sandstone_top', bottom: 'red_sandstone_bottom', side: 'red_sandstone' },
+  smooth_red_sandstone: { top: 'red_sandstone_top', bottom: 'red_sandstone_top', side: 'smooth_red_sandstone' },
+  chiseled_red_sandstone: 'chiseled_red_sandstone',
+  nether_bricks: 'nether_bricks',
+  red_nether_bricks: 'red_nether_bricks',
+  chiseled_nether_bricks: 'chiseled_nether_bricks',
+  cracked_nether_bricks: 'cracked_nether_bricks',
+  basalt: { top: 'basalt_top', bottom: 'basalt_top', side: 'basalt_side' },
+  polished_basalt: { top: 'polished_basalt_top', bottom: 'polished_basalt_top', side: 'polished_basalt_side' },
+  smooth_basalt: 'smooth_basalt',
+  blackstone: { top: 'blackstone_top', bottom: 'blackstone_top', side: 'blackstone' },
+  polished_blackstone: 'polished_blackstone',
+  polished_blackstone_bricks: 'polished_blackstone_bricks',
+  chiseled_polished_blackstone: 'chiseled_polished_blackstone',
+  gilded_blackstone: 'gilded_blackstone',
+  calcite: 'calcite',
+  tuff: 'tuff',
+  tuff_bricks: 'tuff_bricks',
+  polished_tuff: 'polished_tuff',
+  dripstone_block: 'dripstone_block',
+  prismarine: 'prismarine',
+  prismarine_bricks: 'prismarine_bricks',
+  dark_prismarine: 'dark_prismarine',
+  end_stone: 'end_stone',
+  end_stone_bricks: 'end_stone_bricks',
+  purpur_block: 'purpur_block',
+  purpur_pillar: { top: 'purpur_pillar_top', bottom: 'purpur_pillar_top', side: 'purpur_pillar' },
+
+  // Dirt
+  dirt: 'dirt',
+  grass_block: { top: 'grass_block_top', bottom: 'dirt', side: 'grass_block_side' },
+  podzol: { top: 'podzol_top', bottom: 'dirt', side: 'podzol_side' },
+  mycelium: { top: 'mycelium_top', bottom: 'dirt', side: 'mycelium_side' },
+  coarse_dirt: 'coarse_dirt',
+  rooted_dirt: 'rooted_dirt',
+  mud: 'mud',
+  farmland: { top: 'farmland', bottom: 'dirt', side: 'dirt' },
+  soul_soil: 'soul_soil',
+
+  // Sand
+  sand: 'sand',
+  red_sand: 'red_sand',
+  gravel: 'gravel',
+  soul_sand: 'soul_sand',
+  snow_block: 'snow',
+  powder_snow: 'powder_snow',
+  clay: 'clay',
+
+  // Wood logs
+  oak_log: { top: 'oak_log_top', bottom: 'oak_log_top', side: 'oak_log' },
+  spruce_log: { top: 'spruce_log_top', bottom: 'spruce_log_top', side: 'spruce_log' },
+  birch_log: { top: 'birch_log_top', bottom: 'birch_log_top', side: 'birch_log' },
+  jungle_log: { top: 'jungle_log_top', bottom: 'jungle_log_top', side: 'jungle_log' },
+  acacia_log: { top: 'acacia_log_top', bottom: 'acacia_log_top', side: 'acacia_log' },
+  dark_oak_log: { top: 'dark_oak_log_top', bottom: 'dark_oak_log_top', side: 'dark_oak_log' },
+  mangrove_log: { top: 'mangrove_log_top', bottom: 'mangrove_log_top', side: 'mangrove_log' },
+  cherry_log: { top: 'cherry_log_top', bottom: 'cherry_log_top', side: 'cherry_log' },
+  bamboo_block: { top: 'bamboo_block_top', bottom: 'bamboo_block_top', side: 'bamboo_block' },
+  crimson_stem: { top: 'crimson_stem_top', bottom: 'crimson_stem_top', side: 'crimson_stem' },
+  warped_stem: { top: 'warped_stem_top', bottom: 'warped_stem_top', side: 'warped_stem' },
+  oak_wood: { all: 'oak_log' },
+  spruce_wood: { all: 'spruce_log' },
+  birch_wood: { all: 'birch_log' },
+  jungle_wood: { all: 'jungle_log' },
+  acacia_wood: { all: 'acacia_log' },
+  dark_oak_wood: { all: 'dark_oak_log' },
+  mangrove_wood: { all: 'mangrove_log' },
+  cherry_wood: { all: 'cherry_log' },
+
+  // Planks
+  oak_planks: 'oak_planks',
+  spruce_planks: 'spruce_planks',
+  birch_planks: 'birch_planks',
+  jungle_planks: 'jungle_planks',
+  acacia_planks: 'acacia_planks',
+  dark_oak_planks: 'dark_oak_planks',
+  mangrove_planks: 'mangrove_planks',
+  cherry_planks: 'cherry_planks',
+  bamboo_planks: 'bamboo_planks',
+  crimson_planks: 'crimson_planks',
+  warped_planks: 'warped_planks',
+
+  // Wool
+  white_wool: 'white_wool',
+  orange_wool: 'orange_wool',
+  magenta_wool: 'magenta_wool',
+  light_blue_wool: 'light_blue_wool',
+  yellow_wool: 'yellow_wool',
+  lime_wool: 'lime_wool',
+  pink_wool: 'pink_wool',
+  gray_wool: 'gray_wool',
+  light_gray_wool: 'light_gray_wool',
+  cyan_wool: 'cyan_wool',
+  purple_wool: 'purple_wool',
+  blue_wool: 'blue_wool',
+  brown_wool: 'brown_wool',
+  green_wool: 'green_wool',
+  red_wool: 'red_wool',
+  black_wool: 'black_wool',
+
+  // Concrete
+  white_concrete: 'white_concrete',
+  orange_concrete: 'orange_concrete',
+  magenta_concrete: 'magenta_concrete',
+  light_blue_concrete: 'light_blue_concrete',
+  yellow_concrete: 'yellow_concrete',
+  lime_concrete: 'lime_concrete',
+  pink_concrete: 'pink_concrete',
+  gray_concrete: 'gray_concrete',
+  light_gray_concrete: 'light_gray_concrete',
+  cyan_concrete: 'cyan_concrete',
+  purple_concrete: 'purple_concrete',
+  blue_concrete: 'blue_concrete',
+  brown_concrete: 'brown_concrete',
+  green_concrete: 'green_concrete',
+  red_concrete: 'red_concrete',
+  black_concrete: 'black_concrete',
+  white_concrete_powder: 'white_concrete_powder',
+  orange_concrete_powder: 'orange_concrete_powder',
+  magenta_concrete_powder: 'magenta_concrete_powder',
+  light_blue_concrete_powder: 'light_blue_concrete_powder',
+  yellow_concrete_powder: 'yellow_concrete_powder',
+  lime_concrete_powder: 'lime_concrete_powder',
+  pink_concrete_powder: 'pink_concrete_powder',
+  gray_concrete_powder: 'gray_concrete_powder',
+  light_gray_concrete_powder: 'light_gray_concrete_powder',
+  cyan_concrete_powder: 'cyan_concrete_powder',
+  purple_concrete_powder: 'purple_concrete_powder',
+  blue_concrete_powder: 'blue_concrete_powder',
+  brown_concrete_powder: 'brown_concrete_powder',
+  green_concrete_powder: 'green_concrete_powder',
+  red_concrete_powder: 'red_concrete_powder',
+  black_concrete_powder: 'black_concrete_powder',
+
+  // Terracotta
+  terracotta: 'terracotta',
+  white_terracotta: 'white_terracotta',
+  orange_terracotta: 'orange_terracotta',
+  magenta_terracotta: 'magenta_terracotta',
+  light_blue_terracotta: 'light_blue_terracotta',
+  yellow_terracotta: 'yellow_terracotta',
+  lime_terracotta: 'lime_terracotta',
+  pink_terracotta: 'pink_terracotta',
+  gray_terracotta: 'gray_terracotta',
+  light_gray_terracotta: 'light_gray_terracotta',
+  cyan_terracotta: 'cyan_terracotta',
+  purple_terracotta: 'purple_terracotta',
+  blue_terracotta: 'blue_terracotta',
+  brown_terracotta: 'brown_terracotta',
+  green_terracotta: 'green_terracotta',
+  red_terracotta: 'red_terracotta',
+  black_terracotta: 'black_terracotta',
+
+  // Glass
+  glass: 'glass',
+  white_stained_glass: 'white_stained_glass',
+  orange_stained_glass: 'orange_stained_glass',
+  magenta_stained_glass: 'magenta_stained_glass',
+  light_blue_stained_glass: 'light_blue_stained_glass',
+  yellow_stained_glass: 'yellow_stained_glass',
+  lime_stained_glass: 'lime_stained_glass',
+  pink_stained_glass: 'pink_stained_glass',
+  gray_stained_glass: 'gray_stained_glass',
+  light_gray_stained_glass: 'light_gray_stained_glass',
+  cyan_stained_glass: 'cyan_stained_glass',
+  purple_stained_glass: 'purple_stained_glass',
+  blue_stained_glass: 'blue_stained_glass',
+  brown_stained_glass: 'brown_stained_glass',
+  green_stained_glass: 'green_stained_glass',
+  red_stained_glass: 'red_stained_glass',
+  black_stained_glass: 'black_stained_glass',
+  tinted_glass: 'tinted_glass',
+
+  // Ores
+  coal_ore: 'coal_ore',
+  deepslate_coal_ore: 'deepslate_coal_ore',
+  iron_ore: 'iron_ore',
+  deepslate_iron_ore: 'deepslate_iron_ore',
+  copper_ore: 'copper_ore',
+  deepslate_copper_ore: 'deepslate_copper_ore',
+  gold_ore: 'gold_ore',
+  deepslate_gold_ore: 'deepslate_gold_ore',
+  redstone_ore: 'redstone_ore',
+  deepslate_redstone_ore: 'deepslate_redstone_ore',
+  emerald_ore: 'emerald_ore',
+  deepslate_emerald_ore: 'deepslate_emerald_ore',
+  lapis_ore: 'lapis_ore',
+  deepslate_lapis_ore: 'deepslate_lapis_ore',
+  diamond_ore: 'diamond_ore',
+  deepslate_diamond_ore: 'deepslate_diamond_ore',
+  nether_quartz_ore: 'nether_quartz_ore',
+  nether_gold_ore: 'nether_gold_ore',
+  ancient_debris: { top: 'ancient_debris_top', bottom: 'ancient_debris_top', side: 'ancient_debris_side' },
+
+  // Metal blocks
+  iron_block: 'iron_block',
+  gold_block: 'gold_block',
+  diamond_block: 'diamond_block',
+  emerald_block: 'emerald_block',
+  lapis_block: 'lapis_block',
+  redstone_block: 'redstone_block',
+  coal_block: 'coal_block',
+  copper_block: 'copper_block',
+  exposed_copper: 'exposed_copper',
+  weathered_copper: 'weathered_copper',
+  oxidized_copper: 'oxidized_copper',
+  cut_copper: 'cut_copper',
+  netherite_block: 'netherite_block',
+  raw_iron_block: 'raw_iron_block',
+  raw_gold_block: 'raw_gold_block',
+  raw_copper_block: 'raw_copper_block',
+  amethyst_block: 'amethyst_block',
+  quartz_block: { top: 'quartz_block_top', bottom: 'quartz_block_top', side: 'quartz_block_side' },
+  smooth_quartz: { all: 'quartz_block_bottom' },
+  quartz_bricks: 'quartz_bricks',
+  chiseled_quartz_block: { top: 'chiseled_quartz_block_top', bottom: 'chiseled_quartz_block_top', side: 'chiseled_quartz_block' },
+
+  // Light
+  glowstone: 'glowstone',
+  shroomlight: 'shroomlight',
+  sea_lantern: 'sea_lantern',
+  redstone_lamp: 'redstone_lamp',
+  jack_o_lantern: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'jack_o_lantern' },
+  beacon: 'beacon',
+
+  // Plants / Leaves
+  oak_leaves: 'oak_leaves',
+  spruce_leaves: 'spruce_leaves',
+  birch_leaves: 'birch_leaves',
+  jungle_leaves: 'jungle_leaves',
+  acacia_leaves: 'acacia_leaves',
+  dark_oak_leaves: 'dark_oak_leaves',
+  mangrove_leaves: 'mangrove_leaves',
+  cherry_leaves: 'cherry_leaves',
+  azalea_leaves: 'azalea_leaves',
+  flowering_azalea_leaves: 'flowering_azalea_leaves',
+  moss_block: 'moss_block',
+  sculk: 'sculk',
+  sculk_catalyst: { top: 'sculk_catalyst_top', bottom: 'sculk_catalyst_bottom', side: 'sculk_catalyst_side' },
+  hay_block: { top: 'hay_block_top', bottom: 'hay_block_top', side: 'hay_block_side' },
+  dried_kelp_block: { top: 'dried_kelp_block_top', bottom: 'dried_kelp_block_bottom', side: 'dried_kelp_block_side' },
+  pumpkin: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'pumpkin_side' },
+  melon: { top: 'melon_top', bottom: 'melon_top', side: 'melon_side' },
+
+  // Utility
+  crafting_table: { top: 'crafting_table_top', bottom: 'oak_planks', north: 'crafting_table_front', south: 'crafting_table_side', east: 'crafting_table_side', west: 'crafting_table_front' },
+  furnace: { top: 'furnace_top', bottom: 'furnace_top', north: 'furnace_front_off', south: 'furnace_side', east: 'furnace_side', west: 'furnace_side' },
+  chest: { top: 'chest', bottom: 'chest', side: 'chest' },
+  bookshelf: { top: 'oak_planks', bottom: 'oak_planks', side: 'bookshelf' },
+  obsidian: 'obsidian',
+  crying_obsidian: 'crying_obsidian',
+  bedrock: 'bedrock',
+  tnt: { top: 'tnt_top', bottom: 'tnt_bottom', side: 'tnt_side' },
+  sponge: 'sponge',
+  wet_sponge: 'wet_sponge',
+  slime_block: 'slime_block',
+  honey_block: { top: 'honey_block_top', bottom: 'honey_block_bottom', side: 'honey_block_side' },
+  ice: 'ice',
+  packed_ice: 'packed_ice',
+  blue_ice: 'blue_ice',
+  magma_block: 'magma',
+  netherrack: 'netherrack',
+}
+
+export function getBlockTextures(blockId: string): FaceTextures | null {
+  const spec = TEXTURE_MAP[blockId]
+  if (!spec) return null
+  return resolve(spec)
+}
+
+export function getTextureUrl(textureName: string): string {
+  return `/textures/blocks/${textureName}.png`
+}
