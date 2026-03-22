@@ -9,9 +9,12 @@ export type Actionbar = {
   slots: ActionbarSlot[]
 }
 
+export type ToolType = 'place' | 'line' | 'rectangle' | 'fill' | 'copy' | 'paste' | 'mirror'
+
 type HistoryEntry =
   | { type: 'place'; key: string; block: PlacedBlock }
   | { type: 'remove'; key: string; previous: PlacedBlock | undefined }
+  | { type: 'bulk'; placed: Map<string, PlacedBlock>; removed: Map<string, PlacedBlock> }
 
 function makeActionbar(name: string): Actionbar {
   return {
@@ -31,6 +34,7 @@ interface EditorState {
   blocks: Map<string, PlacedBlock>
   placeBlock: (x: number, y: number, z: number) => void
   removeBlock: (x: number, y: number, z: number) => void
+  bulkPlace: (positions: { x: number; y: number; z: number }[]) => void
   isPickerOpen: boolean
   setPickerOpen: (v: boolean) => void
   pickerTargetSlot: number | null
@@ -45,13 +49,19 @@ interface EditorState {
   addActionbar: () => void
   setSlotBlock: (actionbarIndex: number, slotIndex: number, block: BlockDefinition | null) => void
   scrollActionbar: (delta: number) => void
-  // Undo/redo
   undoStack: HistoryEntry[]
   redoStack: HistoryEntry[]
   undo: () => string | null
   redo: () => string | null
   undoMessage: string | null
   setUndoMessage: (msg: string | null) => void
+  // Tools
+  activeTool: ToolType
+  setActiveTool: (tool: ToolType) => void
+  toolPointA: { x: number; y: number; z: number } | null
+  setToolPointA: (p: { x: number; y: number; z: number } | null) => void
+  clipboard: { blocks: Map<string, PlacedBlock>; size: { x: number; y: number; z: number } } | null
+  setClipboard: (c: { blocks: Map<string, PlacedBlock>; size: { x: number; y: number; z: number } } | null) => void
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -66,14 +76,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   placeBlock: (x, y, z) => {
     const key = `${x},${y},${z}`
     const { selectedBlock, blocks, undoStack } = get()
-    const previous = blocks.get(key)
     const next = new Map(blocks)
     next.set(key, { id: selectedBlock.id, color: selectedBlock.color })
-
     const entry: HistoryEntry = { type: 'place', key, block: { id: selectedBlock.id, color: selectedBlock.color } }
-    const newStack = [...undoStack, entry].slice(-MAX_HISTORY)
-
-    set({ blocks: next, undoStack: newStack, redoStack: [] })
+    set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
   },
 
   removeBlock: (x, y, z) => {
@@ -81,14 +87,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { blocks, undoStack } = get()
     const previous = blocks.get(key)
     if (!previous) return
-
     const next = new Map(blocks)
     next.delete(key)
-
     const entry: HistoryEntry = { type: 'remove', key, previous }
-    const newStack = [...undoStack, entry].slice(-MAX_HISTORY)
+    set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
+  },
 
-    set({ blocks: next, undoStack: newStack, redoStack: [] })
+  bulkPlace: (positions) => {
+    const { selectedBlock, blocks, undoStack } = get()
+    const next = new Map(blocks)
+    const placed = new Map<string, PlacedBlock>()
+    const removed = new Map<string, PlacedBlock>()
+    positions.forEach(({ x, y, z }) => {
+      const key = `${x},${y},${z}`
+      const existing = next.get(key)
+      if (existing) removed.set(key, existing)
+      next.set(key, { id: selectedBlock.id, color: selectedBlock.color })
+      placed.set(key, { id: selectedBlock.id, color: selectedBlock.color })
+    })
+    const entry: HistoryEntry = { type: 'bulk', placed, removed }
+    set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
   },
 
   isPickerOpen: false,
@@ -147,7 +165,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     get().setActiveActionbar(next)
   },
 
-  // Undo/redo
   undoStack: [],
   redoStack: [],
   undoMessage: null,
@@ -156,7 +173,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   undo: () => {
     const { undoStack, redoStack, blocks } = get()
     if (undoStack.length === 0) return null
-
     const entry = undoStack[undoStack.length - 1]
     const newUndo = undoStack.slice(0, -1)
     const next = new Map(blocks)
@@ -165,24 +181,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (entry.type === 'place') {
       next.delete(entry.key)
       message = `Undid place ${entry.block.id.replace(/_/g, ' ')}`
-    } else {
+    } else if (entry.type === 'remove') {
       if (entry.previous) next.set(entry.key, entry.previous)
       message = `Undid remove ${entry.previous?.id.replace(/_/g, ' ') ?? 'block'}`
+    } else if (entry.type === 'bulk') {
+      entry.placed.forEach((_, key) => next.delete(key))
+      entry.removed.forEach((block, key) => next.set(key, block))
+      message = `Undid bulk operation (${entry.placed.size} blocks)`
     }
 
-    set({
-      blocks: next,
-      undoStack: newUndo,
-      redoStack: [...redoStack, entry],
-    })
-
+    set({ blocks: next, undoStack: newUndo, redoStack: [...redoStack, entry] })
     return message
   },
 
   redo: () => {
     const { redoStack, undoStack, blocks } = get()
     if (redoStack.length === 0) return null
-
     const entry = redoStack[redoStack.length - 1]
     const newRedo = redoStack.slice(0, -1)
     const next = new Map(blocks)
@@ -191,17 +205,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (entry.type === 'place') {
       next.set(entry.key, entry.block)
       message = `Redid place ${entry.block.id.replace(/_/g, ' ')}`
-    } else {
+    } else if (entry.type === 'remove') {
       next.delete(entry.key)
       message = `Redid remove ${entry.previous?.id.replace(/_/g, ' ') ?? 'block'}`
+    } else if (entry.type === 'bulk') {
+      entry.placed.forEach((block, key) => next.set(key, block))
+      entry.removed.forEach((_, key) => next.delete(key))
+      message = `Redid bulk operation (${entry.placed.size} blocks)`
     }
 
-    set({
-      blocks: next,
-      redoStack: newRedo,
-      undoStack: [...undoStack, entry],
-    })
-
+    set({ blocks: next, redoStack: newRedo, undoStack: [...undoStack, entry] })
     return message
   },
+
+  activeTool: 'place',
+  setActiveTool: (tool) => set({ activeTool: tool, toolPointA: null }),
+  toolPointA: null,
+  setToolPointA: (p) => set({ toolPointA: p }),
+  clipboard: null,
+  setClipboard: (c) => set({ clipboard: c }),
 }))

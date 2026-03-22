@@ -5,8 +5,10 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { useEditorStore } from '@/store/editorStore'
+import { getLineBetween, getRectBetween, floodFill } from '@/lib/toolHelpers'
 import GroundGrid from './GroundGrid'
 import BlockMesh from './BlockMesh'
+import ToolPreview, { updateToolPreviewCursor } from './ToolPreview'
 
 const MOVE_SPEED = 10
 const LOOK_SENSITIVITY = 0.002
@@ -15,12 +17,18 @@ let IS_LOCKED = false
 let IS_ERASING = false
 let HOVERED: { x: number; y: number; z: number } | null = null
 
-// Exported for HUD reading
 export let HUD_X = 0
 export let HUD_Y = 0
 export let HUD_Z = 0
 export let HUD_FACING = 'North'
 export let HUD_FPS = 0
+
+let PLACE_X: number | null = null
+let PLACE_Y: number | null = null
+let PLACE_Z: number | null = null
+let ERASE_X: number | null = null
+let ERASE_Y: number | null = null
+let ERASE_Z: number | null = null
 
 function castRay(camera: THREE.Camera, scene: THREE.Scene) {
   const rc = new THREE.Raycaster()
@@ -43,19 +51,13 @@ function castRay(camera: THREE.Camera, scene: THREE.Scene) {
     else if (ay > ax && ay > az) ny = Math.sign(norm.y)
     else nz = Math.sign(norm.z)
 
-    const hx = hit.point.x - nx * 0.5
-    const hy = hit.point.y - ny * 0.5
-    const hz = hit.point.z - nz * 0.5
-    ERASE_X = Math.floor(hx)
-    ERASE_Y = Math.floor(hy)
-    ERASE_Z = Math.floor(hz)
+    ERASE_X = Math.floor(hit.point.x - nx * 0.5)
+    ERASE_Y = Math.floor(hit.point.y - ny * 0.5)
+    ERASE_Z = Math.floor(hit.point.z - nz * 0.5)
 
-    const px = hit.point.x + nx * 0.5
-    const py = hit.point.y + ny * 0.5
-    const pz = hit.point.z + nz * 0.5
-    PLACE_X = Math.floor(px)
-    PLACE_Y = Math.floor(py)
-    PLACE_Z = Math.floor(pz)
+    PLACE_X = Math.floor(hit.point.x + nx * 0.5)
+    PLACE_Y = Math.floor(hit.point.y + ny * 0.5)
+    PLACE_Z = Math.floor(hit.point.z + nz * 0.5)
 
     return { hasHit: true }
   }
@@ -73,20 +75,19 @@ function castRay(camera: THREE.Camera, scene: THREE.Scene) {
   return { hasHit: false }
 }
 
-let PLACE_X: number | null = null
-let PLACE_Y: number | null = null
-let PLACE_Z: number | null = null
-let ERASE_X: number | null = null
-let ERASE_Y: number | null = null
-let ERASE_Z: number | null = null
-
 function Outline() {
   const ref = useRef<THREE.Mesh>(null)
   const { camera, scene } = useThree()
 
   useFrame(() => {
     if (!ref.current) return
-    if (!IS_LOCKED) { ref.current.visible = false; return }
+
+    if (!IS_LOCKED) {
+      ref.current.visible = false
+      updateToolPreviewCursor(null, null, null)
+      HOVERED = null
+      return
+    }
 
     castRay(camera, scene as THREE.Scene)
 
@@ -98,6 +99,8 @@ function Outline() {
       ref.current.visible = false
       HOVERED = null
     }
+
+    updateToolPreviewCursor(PLACE_X, PLACE_Y, PLACE_Z)
   })
 
   return (
@@ -115,7 +118,10 @@ function Ghost() {
 
   useFrame(() => {
     if (!ref.current) return
-    if (!IS_LOCKED || IS_ERASING) { ref.current.visible = false; return }
+    if (!IS_LOCKED || IS_ERASING) {
+      ref.current.visible = false
+      return
+    }
     if (matRef.current) matRef.current.color.set(selectedBlock.color)
 
     if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
@@ -164,13 +170,101 @@ export default function Scene() {
 
       if (e.button === 0) {
         const store = useEditorStore.getState()
-        if (IS_ERASING) {
-          if (ERASE_X !== null && ERASE_Y !== null && ERASE_Z !== null) {
-            store.removeBlock(ERASE_X, ERASE_Y, ERASE_Z)
+        const tool = store.activeTool
+
+        if (tool === 'place') {
+          if (IS_ERASING) {
+            if (ERASE_X !== null && ERASE_Y !== null && ERASE_Z !== null) {
+              store.removeBlock(ERASE_X, ERASE_Y, ERASE_Z)
+            }
+          } else {
+            if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+              store.placeBlock(PLACE_X, PLACE_Y, PLACE_Z)
+            }
           }
-        } else {
-          if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
-            store.placeBlock(PLACE_X, PLACE_Y, PLACE_Z)
+        } else if (tool === 'fill') {
+          if (ERASE_X !== null && ERASE_Y !== null && ERASE_Z !== null) {
+            const positions = floodFill(store.blocks, ERASE_X, ERASE_Y, ERASE_Z)
+            if (positions.length > 0) {
+              store.bulkPlace(positions)
+              store.setUndoMessage(`Filled ${positions.length} blocks`)
+            }
+          } else if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+            const positions = floodFill(store.blocks, PLACE_X, PLACE_Y, PLACE_Z)
+            if (positions.length > 0) {
+              store.bulkPlace(positions)
+              store.setUndoMessage(`Filled ${positions.length} blocks`)
+            }
+          }
+          store.setActiveTool('place')
+        } else if (tool === 'line' || tool === 'rectangle' || tool === 'copy') {
+          if (!store.toolPointA) {
+            if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+              store.setToolPointA({ x: PLACE_X, y: PLACE_Y, z: PLACE_Z })
+              store.setUndoMessage('Point A set — click Point B')
+            }
+          } else {
+            if (PLACE_X !== null && PLACE_Y !== null && PLACE_Z !== null) {
+              const a = store.toolPointA
+              const b = { x: PLACE_X, y: PLACE_Y, z: PLACE_Z }
+
+              if (tool === 'line') {
+                const positions = getLineBetween(a, b)
+                store.bulkPlace(positions)
+                store.setUndoMessage(`Placed line of ${positions.length} blocks`)
+              } else if (tool === 'rectangle') {
+                const positions = getRectBetween(a, b)
+                store.bulkPlace(positions)
+                store.setUndoMessage(`Filled rectangle of ${positions.length} blocks`)
+              } else if (tool === 'copy') {
+                const copied = new Map<string, { id: string; color: string }>()
+                const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x)
+                const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y)
+                const minZ = Math.min(a.z, b.z), maxZ = Math.max(a.z, b.z)
+                store.blocks.forEach((block, key) => {
+                  const [x, y, z] = key.split(',').map(Number)
+                  if (
+                    x >= minX && x <= maxX &&
+                    y >= minY && y <= maxY &&
+                    z >= minZ && z <= maxZ
+                  ) {
+                    copied.set(`${x - minX},${y - minY},${z - minZ}`, block)
+                  }
+                })
+                store.setClipboard({
+                  blocks: copied,
+                  size: {
+                    x: maxX - minX + 1,
+                    y: maxY - minY + 1,
+                    z: maxZ - minZ + 1,
+                  },
+                })
+                store.setUndoMessage(`Copied ${copied.size} blocks`)
+              }
+
+              store.setToolPointA(null)
+              store.setActiveTool('place')
+            }
+          }
+        } else if (tool === 'paste') {
+          if (
+            store.clipboard &&
+            PLACE_X !== null &&
+            PLACE_Y !== null &&
+            PLACE_Z !== null
+          ) {
+            const positions: { x: number; y: number; z: number }[] = []
+            store.clipboard.blocks.forEach((_, key) => {
+              const [ox, oy, oz] = key.split(',').map(Number)
+              positions.push({
+                x: PLACE_X! + ox,
+                y: PLACE_Y! + oy,
+                z: PLACE_Z! + oz,
+              })
+            })
+            store.bulkPlace(positions)
+            store.setUndoMessage(`Pasted ${positions.length} blocks`)
+            store.setActiveTool('place')
           }
         }
       }
@@ -200,10 +294,16 @@ export default function Scene() {
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'KeyR') { IS_ERASING = true; setErasing(true) }
+      if (e.code === 'KeyR' && !e.metaKey && !e.ctrlKey) {
+        IS_ERASING = true
+        setErasing(true)
+      }
     }
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'KeyR') { IS_ERASING = false; setErasing(false) }
+      if (e.code === 'KeyR') {
+        IS_ERASING = false
+        setErasing(false)
+      }
     }
 
     canvas.addEventListener('mousedown', onMouseDown)
@@ -224,15 +324,18 @@ export default function Scene() {
   }, [gl, setLocked, setErasing])
 
   useFrame((_, delta) => {
-    // Always update FPS
     HUD_FPS = Math.round(1 / delta)
 
     if (!IS_LOCKED) return
 
     const keys = getKeys()
     const speed = MOVE_SPEED * delta
-    const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
-    const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
+    const forward = new THREE.Vector3(
+      -Math.sin(yaw.current), 0, -Math.cos(yaw.current)
+    )
+    const right = new THREE.Vector3(
+      Math.cos(yaw.current), 0, -Math.sin(yaw.current)
+    )
     if (keys.forward) camera.position.addScaledVector(forward, speed)
     if (keys.backward) camera.position.addScaledVector(forward, -speed)
     if (keys.right) camera.position.addScaledVector(right, speed)
@@ -242,12 +345,10 @@ export default function Scene() {
     const euler = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ')
     camera.quaternion.setFromEuler(euler)
 
-    // Update HUD position values
     HUD_X = HOVERED ? HOVERED.x : Math.floor(camera.position.x)
     HUD_Y = HOVERED ? HOVERED.y : Math.floor(camera.position.y)
     HUD_Z = HOVERED ? HOVERED.z : Math.floor(camera.position.z)
 
-    // Facing direction from yaw
     const yawDeg = ((yaw.current * 180 / Math.PI) % 360 + 360) % 360
     if (yawDeg >= 315 || yawDeg < 45) HUD_FACING = 'South'
     else if (yawDeg >= 45 && yawDeg < 135) HUD_FACING = 'West'
@@ -265,6 +366,7 @@ export default function Scene() {
       <Outline />
       <Ghost />
       <BlockMesh />
+      <ToolPreview />
     </>
   )
 }

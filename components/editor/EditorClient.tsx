@@ -9,6 +9,7 @@ import BlockPicker from './BlockPicker'
 import Actionbar from './Actionbar'
 import UndoMessage from './UndoMessage'
 import F3Hud from './F3Hud'
+import Toolbar from './Toolbar'
 import { useEditorStore } from '@/store/editorStore'
 
 const keyMap = [
@@ -73,6 +74,7 @@ export default function EditorClient() {
       <BlockPicker />
       <UndoMessage />
       <F3Hud />
+      <Toolbar />
 
       {/* Erase mode indicator */}
       {isErasing && (
@@ -125,18 +127,27 @@ export default function EditorClient() {
               <span style={{ color: '#fff' }}>Mouse</span> look
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
-              <span style={{ color: '#fff' }}>Right-click</span> open block picker ·{' '}
-              <span style={{ color: '#fff' }}>Hold R</span> erase mode
+              <span style={{ color: '#fff' }}>Right-click</span> block picker ·{' '}
+              <span style={{ color: '#fff' }}>Hold R</span> erase ·{' '}
+              <span style={{ color: '#fff' }}>F3</span> debug HUD
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
-              <span style={{ color: '#fff' }}>1-9</span> select hotbar slot ·{' '}
+              <span style={{ color: '#fff' }}>1-9</span> hotbar slots ·{' '}
               <span style={{ color: '#fff' }}>Scroll</span> switch hotbars ·{' '}
-              <span style={{ color: '#fff' }}>Right-click slot</span> assign block
+              <span style={{ color: '#fff' }}>Right-click slot</span> assign
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
               <span style={{ color: '#fff' }}>Cmd+Z</span> undo ·{' '}
-              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo ·{' '}
-              <span style={{ color: '#fff' }}>F3</span> debug HUD
+              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo
+            </p>
+            <p style={{ fontSize: '13px', color: '#aaa' }}>
+              <span style={{ color: '#fff' }}>B</span> place ·{' '}
+              <span style={{ color: '#fff' }}>L</span> line ·{' '}
+              <span style={{ color: '#fff' }}>G</span> rect ·{' '}
+              <span style={{ color: '#fff' }}>F</span> fill ·{' '}
+              <span style={{ color: '#fff' }}>C</span> copy ·{' '}
+              <span style={{ color: '#fff' }}>V</span> paste ·{' '}
+              <span style={{ color: '#fff' }}>M</span> mirror
             </p>
           </div>
         </div>
