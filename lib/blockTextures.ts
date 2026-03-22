@@ -1,7 +1,3 @@
-// Maps block IDs to their texture files
-// Supports per-face texture overrides (top/bottom/side)
-// Falls back to the block color if texture not found
-
 export type FaceTextures = {
   top: string
   bottom: string
@@ -12,9 +8,9 @@ export type FaceTextures = {
 }
 
 type TextureSpec =
-  | string                          // all faces same
-  | { all: string }                 // all faces same
-  | { top: string; bottom: string; side: string }  // top/bottom/side
+  | string
+  | { all: string }
+  | { top: string; bottom: string; side: string }
   | { top: string; bottom: string; north: string; south: string; east: string; west: string }
 
 function resolve(spec: TextureSpec): FaceTextures {
@@ -30,8 +26,6 @@ function resolve(spec: TextureSpec): FaceTextures {
   return spec
 }
 
-// Block ID → texture spec
-// Texture names match filenames in public/textures/blocks/
 const TEXTURE_MAP: Record<string, TextureSpec> = {
   // Stone
   stone: 'stone',
@@ -109,7 +103,7 @@ const TEXTURE_MAP: Record<string, TextureSpec> = {
   powder_snow: 'powder_snow',
   clay: 'clay',
 
-  // Wood logs
+  // Logs
   oak_log: { top: 'oak_log_top', bottom: 'oak_log_top', side: 'oak_log' },
   spruce_log: { top: 'spruce_log_top', bottom: 'spruce_log_top', side: 'spruce_log' },
   birch_log: { top: 'birch_log_top', bottom: 'birch_log_top', side: 'birch_log' },
@@ -286,7 +280,7 @@ const TEXTURE_MAP: Record<string, TextureSpec> = {
   jack_o_lantern: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'jack_o_lantern' },
   beacon: 'beacon',
 
-  // Plants / Leaves
+  // Plants
   oak_leaves: 'oak_leaves',
   spruce_leaves: 'spruce_leaves',
   birch_leaves: 'birch_leaves',
@@ -323,6 +317,44 @@ const TEXTURE_MAP: Record<string, TextureSpec> = {
   blue_ice: 'blue_ice',
   magma_block: 'magma',
   netherrack: 'netherrack',
+
+  // Doors
+  oak_door: { top: 'oak_door_top', bottom: 'oak_door_bottom', side: 'oak_door_bottom' },
+  spruce_door: { top: 'spruce_door_top', bottom: 'spruce_door_bottom', side: 'spruce_door_bottom' },
+  birch_door: { top: 'birch_door_top', bottom: 'birch_door_bottom', side: 'birch_door_bottom' },
+  jungle_door: { top: 'jungle_door_top', bottom: 'jungle_door_bottom', side: 'jungle_door_bottom' },
+  acacia_door: { top: 'acacia_door_top', bottom: 'acacia_door_bottom', side: 'acacia_door_bottom' },
+  dark_oak_door: { top: 'dark_oak_door_top', bottom: 'dark_oak_door_bottom', side: 'dark_oak_door_bottom' },
+  mangrove_door: { top: 'mangrove_door_top', bottom: 'mangrove_door_bottom', side: 'mangrove_door_bottom' },
+  cherry_door: { top: 'cherry_door_top', bottom: 'cherry_door_bottom', side: 'cherry_door_bottom' },
+  bamboo_door: { top: 'bamboo_door_top', bottom: 'bamboo_door_bottom', side: 'bamboo_door_bottom' },
+  crimson_door: { top: 'crimson_door_top', bottom: 'crimson_door_bottom', side: 'crimson_door_bottom' },
+  warped_door: { top: 'warped_door_top', bottom: 'warped_door_bottom', side: 'warped_door_bottom' },
+  iron_door: { top: 'iron_door_top', bottom: 'iron_door_bottom', side: 'iron_door_bottom' },
+  pale_oak_door: { top: 'pale_oak_door_top', bottom: 'pale_oak_door_bottom', side: 'pale_oak_door_bottom' },
+  copper_door: { top: 'copper_door_top', bottom: 'copper_door_bottom', side: 'copper_door_bottom' },
+  exposed_copper_door: { top: 'exposed_copper_door_top', bottom: 'exposed_copper_door_bottom', side: 'exposed_copper_door_bottom' },
+  weathered_copper_door: { top: 'weathered_copper_door_top', bottom: 'weathered_copper_door_bottom', side: 'weathered_copper_door_bottom' },
+  oxidized_copper_door: { top: 'oxidized_copper_door_top', bottom: 'oxidized_copper_door_bottom', side: 'oxidized_copper_door_bottom' },
+
+  // Trapdoors
+  oak_trapdoor: 'oak_trapdoor',
+  spruce_trapdoor: 'spruce_trapdoor',
+  birch_trapdoor: 'birch_trapdoor',
+  jungle_trapdoor: 'jungle_trapdoor',
+  acacia_trapdoor: 'acacia_trapdoor',
+  dark_oak_trapdoor: 'dark_oak_trapdoor',
+  mangrove_trapdoor: 'mangrove_trapdoor',
+  cherry_trapdoor: 'cherry_trapdoor',
+  bamboo_trapdoor: 'bamboo_trapdoor',
+  crimson_trapdoor: 'crimson_trapdoor',
+  warped_trapdoor: 'warped_trapdoor',
+  iron_trapdoor: 'iron_trapdoor',
+  pale_oak_trapdoor: 'pale_oak_trapdoor',
+  copper_trapdoor: 'copper_trapdoor',
+  exposed_copper_trapdoor: 'exposed_copper_trapdoor',
+  weathered_copper_trapdoor: 'weathered_copper_trapdoor',
+  oxidized_copper_trapdoor: 'oxidized_copper_trapdoor',
 }
 
 export function getBlockTextures(blockId: string): FaceTextures | null {

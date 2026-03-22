@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { BlockDefinition, BLOCKS } from '@/lib/blocks'
-import { ProjectRecord, saveProject, getAllProjects, deleteProject } from '@/lib/projectDB'
+import { ProjectRecord, saveProject, getAllProjects } from '@/lib/projectDB'
 import { VariantType } from '@/lib/blockVariants'
 
 export type PlacedBlock = { id: string; color: string; variantType: VariantType }
@@ -98,23 +98,62 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const key = `${x},${y},${z}`
     const { selectedBlock, selectedVariant, blocks, undoStack } = get()
     const next = new Map(blocks)
-    next.set(key, { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant })
-    const entry: HistoryEntry = {
-      type: 'place',
-      key,
-      block: { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant },
+    const placed = new Map<string, PlacedBlock>()
+
+    const newBlock: PlacedBlock = {
+      id: selectedBlock.id,
+      color: selectedBlock.color,
+      variantType: selectedVariant,
     }
+    next.set(key, newBlock)
+    placed.set(key, newBlock)
+
+    // Door auto-pair: place lower → auto-place upper
+    if (selectedVariant === 'door_lower') {
+      const upperKey = `${x},${y + 1},${z}`
+      const upperBlock: PlacedBlock = {
+        id: selectedBlock.id,
+        color: selectedBlock.color,
+        variantType: 'door_upper',
+      }
+      next.set(upperKey, upperBlock)
+      placed.set(upperKey, upperBlock)
+    }
+
+    const entry: HistoryEntry = { type: 'bulk', placed, removed: new Map() }
     set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
   },
 
   removeBlock: (x, y, z) => {
     const key = `${x},${y},${z}`
     const { blocks, undoStack } = get()
-    const previous = blocks.get(key)
-    if (!previous) return
+    const target = blocks.get(key)
+    if (!target) return
+
     const next = new Map(blocks)
+    const removed = new Map<string, PlacedBlock>()
+
     next.delete(key)
-    const entry: HistoryEntry = { type: 'remove', key, previous }
+    removed.set(key, target)
+
+    // Door auto-remove: remove paired half
+    if (target.variantType === 'door_lower') {
+      const upperKey = `${x},${y + 1},${z}`
+      const upper = next.get(upperKey)
+      if (upper?.variantType === 'door_upper') {
+        next.delete(upperKey)
+        removed.set(upperKey, upper)
+      }
+    } else if (target.variantType === 'door_upper') {
+      const lowerKey = `${x},${y - 1},${z}`
+      const lower = next.get(lowerKey)
+      if (lower?.variantType === 'door_lower') {
+        next.delete(lowerKey)
+        removed.set(lowerKey, lower)
+      }
+    }
+
+    const entry: HistoryEntry = { type: 'bulk', placed: new Map(), removed }
     set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
   },
 
@@ -127,8 +166,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const key = `${x},${y},${z}`
       const existing = next.get(key)
       if (existing) removed.set(key, existing)
-      next.set(key, { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant })
-      placed.set(key, { id: selectedBlock.id, color: selectedBlock.color, variantType: selectedVariant })
+      const block: PlacedBlock = {
+        id: selectedBlock.id,
+        color: selectedBlock.color,
+        variantType: selectedVariant,
+      }
+      next.set(key, block)
+      placed.set(key, block)
     })
     const entry: HistoryEntry = { type: 'bulk', placed, removed }
     set({ blocks: next, undoStack: [...undoStack, entry].slice(-MAX_HISTORY), redoStack: [] })
@@ -202,6 +246,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newUndo = undoStack.slice(0, -1)
     const next = new Map(blocks)
     let message = ''
+
     if (entry.type === 'place') {
       next.delete(entry.key)
       message = `Undid place ${entry.block.id.replace(/_/g, ' ')}`
@@ -211,8 +256,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     } else if (entry.type === 'bulk') {
       entry.placed.forEach((_, key) => next.delete(key))
       entry.removed.forEach((block, key) => next.set(key, block))
-      message = `Undid bulk operation (${entry.placed.size} blocks)`
+      message = `Undid ${entry.placed.size} block${entry.placed.size !== 1 ? 's' : ''}`
     }
+
     set({ blocks: next, undoStack: newUndo, redoStack: [...redoStack, entry] })
     return message
   },
@@ -224,6 +270,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newRedo = redoStack.slice(0, -1)
     const next = new Map(blocks)
     let message = ''
+
     if (entry.type === 'place') {
       next.set(entry.key, entry.block)
       message = `Redid place ${entry.block.id.replace(/_/g, ' ')}`
@@ -233,8 +280,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     } else if (entry.type === 'bulk') {
       entry.placed.forEach((block, key) => next.set(key, block))
       entry.removed.forEach((_, key) => next.delete(key))
-      message = `Redid bulk operation (${entry.placed.size} blocks)`
+      message = `Redid ${entry.placed.size} block${entry.placed.size !== 1 ? 's' : ''}`
     }
+
     set({ blocks: next, redoStack: newRedo, undoStack: [...undoStack, entry] })
     return message
   },
@@ -280,7 +328,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const blocks = new Map<string, PlacedBlock>()
     Object.entries(project.blocks).forEach(([key, block]) => {
       blocks.set(key, {
-        ...block,
+        id: (block as PlacedBlock).id,
+        color: (block as PlacedBlock).color,
         variantType: (block as PlacedBlock).variantType ?? 'full',
       })
     })
