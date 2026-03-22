@@ -4,6 +4,8 @@ import { useEditorStore } from '@/store/editorStore'
 
 export default function MenuBar() {
   const setProjectPanelOpen = useEditorStore((s) => s.setProjectPanelOpen)
+  const setInfoPanelOpen = useEditorStore((s) => s.setInfoPanelOpen)
+  const setVariantMenuOpen = useEditorStore((s) => s.setVariantMenuOpen)
   const currentProjectName = useEditorStore((s) => s.currentProjectName)
   const currentProjectId = useEditorStore((s) => s.currentProjectId)
   const saveCurrentProject = useEditorStore((s) => s.saveCurrentProject)
@@ -11,7 +13,6 @@ export default function MenuBar() {
   const blocks = useEditorStore((s) => s.blocks)
   const selectedVariant = useEditorStore((s) => s.selectedVariant)
   const selectedBlock = useEditorStore((s) => s.selectedBlock)
-  const setVariantMenuOpen = useEditorStore((s) => s.setVariantMenuOpen)
 
   const handleSave = async () => {
     const store = useEditorStore.getState()
@@ -64,7 +65,7 @@ export default function MenuBar() {
         💾 Save
       </button>
 
-      {/* Variant button */}
+      {/* Variants */}
       <button
         onClick={() => {
           document.exitPointerLock()
@@ -79,20 +80,25 @@ export default function MenuBar() {
       >
         🧱 Variants
         {selectedVariant !== 'full' && (
-          <span style={{
-            marginLeft: '4px',
-            color: '#4CAF50',
-            fontSize: '10px',
-          }}>
+          <span style={{ marginLeft: '4px', color: '#4CAF50', fontSize: '10px' }}>
             [{selectedVariant.replace(/_/g, ' ')}]
           </span>
         )}
       </button>
 
+      {/* Info */}
+      <button
+        onClick={() => setInfoPanelOpen(true)}
+        style={menuBtn}
+        title="Schematic info, materials & checklist (Cmd+I)"
+      >
+        📊 Info
+      </button>
+
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Selected block */}
+      {/* Selected block color + name */}
       <div style={{
         display: 'flex',
         alignItems: 'center',

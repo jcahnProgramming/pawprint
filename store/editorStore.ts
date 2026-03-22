@@ -74,6 +74,8 @@ interface EditorState {
   setProjects: (projects: ProjectRecord[]) => void
   isProjectPanelOpen: boolean
   setProjectPanelOpen: (v: boolean) => void
+  isInfoPanelOpen: boolean
+  setInfoPanelOpen: (v: boolean) => void
   saveCurrentProject: () => Promise<void>
   loadProject: (project: ProjectRecord) => void
   refreshProjects: () => Promise<void>
@@ -108,7 +110,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     next.set(key, newBlock)
     placed.set(key, newBlock)
 
-    // Door auto-pair: place lower → auto-place upper
     if (selectedVariant === 'door_lower') {
       const upperKey = `${x},${y + 1},${z}`
       const upperBlock: PlacedBlock = {
@@ -136,7 +137,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     next.delete(key)
     removed.set(key, target)
 
-    // Door auto-remove: remove paired half
     if (target.variantType === 'door_lower') {
       const upperKey = `${x},${y + 1},${z}`
       const upper = next.get(upperKey)
@@ -303,6 +303,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   isProjectPanelOpen: false,
   setProjectPanelOpen: (v) => set({ isProjectPanelOpen: v }),
+
+  isInfoPanelOpen: false,
+  setInfoPanelOpen: (v) => set({ isInfoPanelOpen: v }),
 
   saveCurrentProject: async () => {
     const { blocks, currentProjectId, currentProjectName } = get()

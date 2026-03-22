@@ -12,6 +12,7 @@ import F3Hud from './F3Hud'
 import Toolbar from './Toolbar'
 import MenuBar from './MenuBar'
 import ProjectPanel from './ProjectPanel'
+import InfoPanel from './InfoPanel'
 import VariantMenu from './VariantMenu'
 import { useEditorStore } from '@/store/editorStore'
 
@@ -30,13 +31,14 @@ export default function EditorClient() {
   const isErasing = useEditorStore((s) => s.isErasing)
   const setUndoMessage = useEditorStore((s) => s.setUndoMessage)
   const setProjectPanelOpen = useEditorStore((s) => s.setProjectPanelOpen)
+  const setInfoPanelOpen = useEditorStore((s) => s.setInfoPanelOpen)
 
   useEffect(() => {
     const onKeyDown = async (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().includes('MAC')
       const ctrl = isMac ? e.metaKey : e.ctrlKey
 
-      // Ctrl+S — save
+      // Cmd+S — save
       if (ctrl && e.code === 'KeyS') {
         e.preventDefault()
         const store = useEditorStore.getState()
@@ -50,10 +52,17 @@ export default function EditorClient() {
         return
       }
 
-      // Ctrl+P — projects panel
+      // Cmd+P — projects panel
       if (ctrl && e.code === 'KeyP') {
         e.preventDefault()
         setProjectPanelOpen(true)
+        return
+      }
+
+      // Cmd+I — info panel
+      if (ctrl && e.code === 'KeyI') {
+        e.preventDefault()
+        setInfoPanelOpen(true)
         return
       }
 
@@ -76,7 +85,7 @@ export default function EditorClient() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isPickerOpen, setUndoMessage, setProjectPanelOpen])
+  }, [isPickerOpen, setUndoMessage, setProjectPanelOpen, setInfoPanelOpen])
 
   return (
     <div style={{
@@ -115,6 +124,7 @@ export default function EditorClient() {
       <F3Hud />
       <Toolbar />
       <ProjectPanel />
+      <InfoPanel />
       <VariantMenu />
 
       {/* Erase mode indicator */}
@@ -183,8 +193,11 @@ export default function EditorClient() {
             <p style={{ fontSize: '13px', color: '#aaa' }}>
               <span style={{ color: '#fff' }}>Cmd+S</span> save ·{' '}
               <span style={{ color: '#fff' }}>Cmd+Z</span> undo ·{' '}
-              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo ·{' '}
-              <span style={{ color: '#fff' }}>Cmd+P</span> projects
+              <span style={{ color: '#fff' }}>Cmd+Shift+Z</span> redo
+            </p>
+            <p style={{ fontSize: '13px', color: '#aaa' }}>
+              <span style={{ color: '#fff' }}>Cmd+P</span> projects ·{' '}
+              <span style={{ color: '#fff' }}>Cmd+I</span> info panel
             </p>
             <p style={{ fontSize: '13px', color: '#aaa' }}>
               <span style={{ color: '#fff' }}>B</span> place ·{' '}
