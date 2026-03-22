@@ -1,13 +1,12 @@
 import pako from 'pako'
 import { PlacedBlock } from '@/store/editorStore'
+import { buildBlockstateString } from './blockstateExport'
+import { VariantType } from './blockVariants'
 
-// Minecraft data versions
 const MC_VERSIONS: Record<string, number> = {
   '1.21.4': 4189,
   '1.20.4': 3953,
 }
-
-// ── NBT encoding helpers ─────────────────────────────────────────────────────
 
 const TAG = {
   END: 0,
@@ -43,11 +42,6 @@ class NBTWriter {
     )
   }
 
-  writeLong(hi: number, lo: number) {
-    this.writeInt(hi)
-    this.writeInt(lo)
-  }
-
   writeLong64(value: bigint) {
     const hi = Number(BigInt.asIntN(32, value >> 32n))
     const lo = Number(BigInt.asIntN(32, value & 0xffffffffn))
@@ -71,19 +65,14 @@ class NBTWriter {
     this.writeByte(v)
   }
 
-  writeShortTag(name: string, v: number) {
-    this.writeTagHeader(TAG.SHORT, name)
-    this.writeShort(v)
-  }
-
   writeIntTag(name: string, v: number) {
     this.writeTagHeader(TAG.INT, name)
     this.writeInt(v)
   }
 
-  writeLongTag(name: string, hi: number, lo: number) {
+  writeLongTag(name: string, value: bigint) {
     this.writeTagHeader(TAG.LONG, name)
-    this.writeLong(hi, lo)
+    this.writeLong64(value)
   }
 
   writeStringTag(name: string, v: string) {
@@ -124,15 +113,26 @@ class NBTWriter {
   }
 }
 
-// ── Block state string builder ───────────────────────────────────────────────
+function packBlockStates(indices: number[], bitsPerBlock: number): bigint[] {
+  const longsNeeded = Math.ceil((indices.length * bitsPerBlock) / 64)
+  const longs = new Array(longsNeeded).fill(0n)
+  const mask = (1n << BigInt(bitsPerBlock)) - 1n
 
-function toBlockStateString(blockId: string): string {
-  // blockId is already like 'stone', 'oak_log', 'white_concrete' etc.
-  // Just prefix with minecraft:
-  return `minecraft:${blockId}`
+  for (let i = 0; i < indices.length; i++) {
+    const bitIdx = i * bitsPerBlock
+    const longIdx = Math.floor(bitIdx / 64)
+    const bitOffset = bitIdx % 64
+    const val = BigInt(indices[i]) & mask
+    longs[longIdx] |= val << BigInt(bitOffset)
+    const bitsWritten = 64 - bitOffset
+    if (bitsWritten < bitsPerBlock && longIdx + 1 < longs.length) {
+      longs[longIdx + 1] |= val >> BigInt(bitsWritten)
+    }
+  }
+
+  return longs
 }
 
-// Parse blockstate string into Name + Properties
 function parseBlockState(blockStateStr: string): {
   name: string
   properties: Record<string, string>
@@ -151,44 +151,12 @@ function parseBlockState(blockStateStr: string): {
   return { name, properties }
 }
 
-// ── Packed long array ────────────────────────────────────────────────────────
-
-function packBlockStates(
-  indices: number[],
-  bitsPerBlock: number
-): bigint[] {
-  const longsNeeded = Math.ceil((indices.length * bitsPerBlock) / 64)
-  const longs = new Array(longsNeeded).fill(0n)
-  const mask = (1n << BigInt(bitsPerBlock)) - 1n
-
-  for (let i = 0; i < indices.length; i++) {
-    const bitIdx = i * bitsPerBlock
-    const longIdx = Math.floor(bitIdx / 64)
-    const bitOffset = bitIdx % 64
-
-    const val = BigInt(indices[i]) & mask
-    longs[longIdx] |= val << BigInt(bitOffset)
-
-    // Handle overflow into next long
-    const bitsWritten = 64 - bitOffset
-    if (bitsWritten < bitsPerBlock) {
-      longs[longIdx + 1] |= val >> BigInt(bitsWritten)
-    }
-  }
-
-  return longs
-}
-
-// ── Main export function ─────────────────────────────────────────────────────
-
 export function exportLitematic(
   blocks: Map<string, PlacedBlock>,
   projectName: string,
   mcVersion: '1.21.4' | '1.20.4' = '1.21.4'
 ): Uint8Array {
-  if (blocks.size === 0) {
-    throw new Error('No blocks to export')
-  }
+  if (blocks.size === 0) throw new Error('No blocks to export')
 
   // ── 1. Compute bounds ──────────────────────────────────────────────────────
   let minX = Infinity, minY = Infinity, minZ = Infinity
@@ -206,24 +174,22 @@ export function exportLitematic(
   const sizeZ = maxZ - minZ + 1
   const totalVolume = sizeX * sizeY * sizeZ
 
-  // ── 2. Build palette ───────────────────────────────────────────────────────
-  // Always start with air as index 0
+  // ── 2. Build palette using correct blockstate strings ──────────────────────
   const paletteMap = new Map<string, number>()
   paletteMap.set('minecraft:air', 0)
 
   blocks.forEach((block) => {
-    const bs = toBlockStateString(block.id)
+    const variantType = (block.variantType ?? 'full') as VariantType
+    const bs = buildBlockstateString(block.id, variantType)
     if (!paletteMap.has(bs)) {
       paletteMap.set(bs, paletteMap.size)
     }
   })
 
   const palette = Array.from(paletteMap.keys())
-  const paletteSize = palette.length
-  const bitsPerBlock = Math.max(2, Math.ceil(Math.log2(paletteSize)))
+  const bitsPerBlock = Math.max(2, Math.ceil(Math.log2(palette.length)))
 
-  // ── 3. Build block index array ─────────────────────────────────────────────
-  // Litematica order: x + z*sizeX + y*sizeX*sizeZ (YZX order)
+  // ── 3. Build block index array (YZX order) ─────────────────────────────────
   const blockIndices = new Array(totalVolume).fill(0)
 
   blocks.forEach((block, key) => {
@@ -232,7 +198,8 @@ export function exportLitematic(
     const ly = y - minY
     const lz = z - minZ
     const idx = lx + lz * sizeX + ly * sizeX * sizeZ
-    const bs = toBlockStateString(block.id)
+    const variantType = (block.variantType ?? 'full') as VariantType
+    const bs = buildBlockstateString(block.id, variantType)
     blockIndices[idx] = paletteMap.get(bs) ?? 0
   })
 
@@ -241,16 +208,11 @@ export function exportLitematic(
 
   // ── 5. Write NBT ───────────────────────────────────────────────────────────
   const now = BigInt(Date.now())
-  const nowHi = Number(now >> 32n)
-  const nowLo = Number(now & 0xffffffffn)
   const dataVersion = MC_VERSIONS[mcVersion] ?? 4189
   const regionName = projectName.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'Region'
   const w = new NBTWriter()
 
-  // Root compound (unnamed in GZip NBT)
   w.startCompoundTag('')
-
-  // Version info
   w.writeIntTag('Version', 6)
   w.writeIntTag('SubVersion', 1)
   w.writeIntTag('MinecraftDataVersion', dataVersion)
@@ -260,22 +222,18 @@ export function exportLitematic(
   w.writeStringTag('Name', projectName)
   w.writeStringTag('Author', 'PawPrint')
   w.writeIntTag('RegionCount', 1)
-  w.writeLongTag('TimeCreated', nowHi, nowLo)
-  w.writeLongTag('TimeModified', nowHi, nowLo)
+  w.writeLongTag('TimeCreated', now)
+  w.writeLongTag('TimeModified', now)
   w.writeIntVec3Tag('EnclosingSize', sizeX, sizeY, sizeZ)
   w.writeIntTag('TotalBlocks', blocks.size)
   w.writeIntTag('TotalVolume', totalVolume)
-
-  // Thumbnail (empty)
   w.startCompoundTag('PreviewImageData')
   w.endCompound()
-
   w.endCompound() // Metadata
 
   // Regions
   w.startCompoundTag('Regions')
   w.startCompoundTag(regionName)
-
   w.writeIntVec3Tag('Position', 0, 0, 0)
   w.writeIntVec3Tag('Size', sizeX, sizeY, sizeZ)
 
@@ -291,13 +249,10 @@ export function exportLitematic(
       })
       w.endCompound()
     }
-    w.writeByte(TAG.END) // end of palette entry compound
+    w.writeByte(TAG.END)
   })
 
-  // BlockStates packed long array
   w.writeLongArrayTag('BlockStates', packedLongs)
-
-  // Entities and TileEntities (empty lists)
   w.startListTag('Entities', TAG.COMPOUND, 0)
   w.startListTag('TileEntities', TAG.COMPOUND, 0)
   w.startListTag('PendingBlockTicks', TAG.COMPOUND, 0)
@@ -308,7 +263,5 @@ export function exportLitematic(
   w.endCompound() // root
 
   // ── 6. GZip compress ──────────────────────────────────────────────────────
-  const nbtBytes = w.toUint8Array()
-  const compressed = pako.gzip(nbtBytes)
-  return compressed
+  return pako.gzip(w.toUint8Array())
 }
