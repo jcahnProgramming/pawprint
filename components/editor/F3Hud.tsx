@@ -8,7 +8,7 @@ export default function F3Hud() {
   const [visible, setVisible] = useState(false)
   const [, forceUpdate] = useState(0)
   const blocks = useEditorStore((s) => s.blocks)
-  const rafRef = useRef<number>()
+  const rafRef = useRef<number | undefined>(undefined)
 
   // Toggle on F3
   useEffect(() => {

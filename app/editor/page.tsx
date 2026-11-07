@@ -1,3 +1,7 @@
+'use client'
+
+// Client Component so the editor can be loaded with ssr: false (it needs
+// WebGL, IndexedDB and pointer lock, which only exist in the browser).
 import dynamic from 'next/dynamic'
 
 const EditorClient = dynamic(() => import('@/components/editor/EditorClient'), {
