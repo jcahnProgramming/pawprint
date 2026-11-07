@@ -40,7 +40,8 @@ interface EditorState {
   blocks: Map<string, PlacedBlock>
   placeBlock: (x: number, y: number, z: number) => void
   removeBlock: (x: number, y: number, z: number) => void
-  bulkPlace: (positions: { x: number; y: number; z: number }[]) => void
+  // Places the selected block at each position, or the position's own block if given
+  bulkPlace: (positions: { x: number; y: number; z: number; block?: PlacedBlock }[]) => void
   isPickerOpen: boolean
   setPickerOpen: (v: boolean) => void
   pickerTargetSlot: number | null
@@ -162,11 +163,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const next = new Map(blocks)
     const placed = new Map<string, PlacedBlock>()
     const removed = new Map<string, PlacedBlock>()
-    positions.forEach(({ x, y, z }) => {
+    positions.forEach(({ x, y, z, block: given }) => {
       const key = `${x},${y},${z}`
-      const existing = next.get(key)
+      // Record what was there before this action, so undo restores it
+      const existing = blocks.get(key)
       if (existing) removed.set(key, existing)
-      const block: PlacedBlock = {
+      const block: PlacedBlock = given ?? {
         id: selectedBlock.id,
         color: selectedBlock.color,
         variantType: selectedVariant,
@@ -256,7 +258,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     } else if (entry.type === 'bulk') {
       entry.placed.forEach((_, key) => next.delete(key))
       entry.removed.forEach((block, key) => next.set(key, block))
-      message = `Undid ${entry.placed.size} block${entry.placed.size !== 1 ? 's' : ''}`
+      const count = entry.placed.size || entry.removed.size
+      message = `Undid ${count} block${count !== 1 ? 's' : ''}`
     }
 
     set({ blocks: next, undoStack: newUndo, redoStack: [...redoStack, entry] })
@@ -278,9 +281,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       next.delete(entry.key)
       message = `Redid remove ${entry.previous?.id.replace(/_/g, ' ') ?? 'block'}`
     } else if (entry.type === 'bulk') {
-      entry.placed.forEach((block, key) => next.set(key, block))
+      // Remove first, then place: keys that were overwritten are in both maps
       entry.removed.forEach((_, key) => next.delete(key))
-      message = `Redid ${entry.placed.size} block${entry.placed.size !== 1 ? 's' : ''}`
+      entry.placed.forEach((block, key) => next.set(key, block))
+      const count = entry.placed.size || entry.removed.size
+      message = `Redid ${count} block${count !== 1 ? 's' : ''}`
     }
 
     set({ blocks: next, redoStack: newRedo, undoStack: [...undoStack, entry] })

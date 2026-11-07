@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { isTypingTarget } from '@/lib/keyboard'
 
 export default function Actionbar() {
   const actionbars = useEditorStore((s) => s.actionbars)
@@ -15,7 +16,7 @@ export default function Actionbar() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isPickerOpen) return
+      if (isPickerOpen || isTypingTarget(e.target)) return
       const num = parseInt(e.key)
       if (num >= 1 && num <= 9) setActiveSlot(num - 1)
     }

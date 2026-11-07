@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { HUD_X, HUD_Y, HUD_Z, HUD_FACING, HUD_FPS } from './Scene'
+import { isTypingTarget } from '@/lib/keyboard'
 
 export default function F3Hud() {
   const [visible, setVisible] = useState(false)
@@ -13,7 +14,7 @@ export default function F3Hud() {
   // Toggle on F3
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'F3') {
+      if (e.code === 'F3' && !isTypingTarget(e.target)) {
         e.preventDefault()
         setVisible(v => !v)
       }
@@ -58,7 +59,7 @@ export default function F3Hud() {
   return (
     <div style={{
       position: 'absolute',
-      top: '12px',
+      top: '48px', // below the 36px menu bar
       left: '12px',
       background: 'rgba(0,0,0,0.65)',
       color: '#fff',

@@ -15,6 +15,7 @@ import ProjectPanel from './ProjectPanel'
 import InfoPanel from './InfoPanel'
 import VariantMenu from './VariantMenu'
 import { useEditorStore } from '@/store/editorStore'
+import { isTypingTarget } from '@/lib/keyboard'
 
 const keyMap = [
   { name: 'forward', keys: ['KeyW'] },
@@ -35,6 +36,8 @@ export default function EditorClient() {
 
   useEffect(() => {
     const onKeyDown = async (e: KeyboardEvent) => {
+      // Leave keys (including Ctrl+Z text undo) to the field being typed in
+      if (isTypingTarget(e.target)) return
       const isMac = navigator.platform.toUpperCase().includes('MAC')
       const ctrl = isMac ? e.metaKey : e.ctrlKey
 

@@ -214,8 +214,9 @@ export default function ProjectPanel() {
         />
       )}
 
-      {/* Panel */}
+      {/* Panel (inert while closed so Tab can't focus it off-screen) */}
       <div
+        inert={!isOpen}
         style={{
           position: 'absolute',
           top: 0,

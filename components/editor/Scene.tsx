@@ -6,6 +6,7 @@ import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { useEditorStore, PlacedBlock } from '@/store/editorStore'
 import { getLineBetween, getRectBetween, floodFill } from '@/lib/toolHelpers'
+import { isTypingTarget } from '@/lib/keyboard'
 import GroundGrid from './GroundGrid'
 import BlockMesh from './BlockMesh'
 import ToolPreview, { updateToolPreviewCursor } from './ToolPreview'
@@ -253,13 +254,14 @@ export default function Scene() {
             PLACE_Y !== null &&
             PLACE_Z !== null
           ) {
-            const positions: { x: number; y: number; z: number }[] = []
-            store.clipboard.blocks.forEach((_, key) => {
+            const positions: { x: number; y: number; z: number; block: PlacedBlock }[] = []
+            store.clipboard.blocks.forEach((block, key) => {
               const [ox, oy, oz] = key.split(',').map(Number)
               positions.push({
                 x: PLACE_X! + ox,
                 y: PLACE_Y! + oy,
                 z: PLACE_Z! + oz,
+                block,
               })
             })
             store.bulkPlace(positions)
@@ -294,7 +296,7 @@ export default function Scene() {
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'KeyR' && !e.metaKey && !e.ctrlKey) {
+      if (e.code === 'KeyR' && !e.metaKey && !e.ctrlKey && !isTypingTarget(e.target)) {
         IS_ERASING = true
         setErasing(true)
       }

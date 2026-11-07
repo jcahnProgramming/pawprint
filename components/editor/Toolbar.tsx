@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useEditorStore, ToolType, PlacedBlock } from '@/store/editorStore'
+import { isTypingTarget } from '@/lib/keyboard'
 
 const TOOLS: { id: ToolType; label: string; icon: string; key: string; description: string }[] = [
   { id: 'place', label: 'Place', icon: '🧱', key: 'B', description: 'Place blocks' },
@@ -22,7 +23,7 @@ export default function Toolbar() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isPickerOpen) return
+      if (isPickerOpen || isTypingTarget(e.target)) return
       if (e.metaKey || e.ctrlKey) return
       switch (e.code) {
         case 'KeyB': setActiveTool('place'); break
@@ -135,6 +136,8 @@ export default function Toolbar() {
                 store.setActiveTool('place')
               }}
               style={mirrorBtnStyle}
+              aria-label="Mirror on X axis"
+              title="Mirror on X axis"
             >
               <span style={{ fontSize: '11px', color: '#f44336', fontFamily: 'monospace' }}>X</span>
             </button>
@@ -146,6 +149,8 @@ export default function Toolbar() {
                 store.setActiveTool('place')
               }}
               style={mirrorBtnStyle}
+              aria-label="Mirror on Z axis"
+              title="Mirror on Z axis"
             >
               <span style={{ fontSize: '11px', color: '#64B5F6', fontFamily: 'monospace' }}>Z</span>
             </button>
@@ -206,28 +211,16 @@ function mirrorBlocks(
     }
   })
 
-  // We need to place blocks with their specific colors, not selected block
-  // So we bypass bulkPlace and use the store directly
-  const store = useEditorStore.getState()
-  const next = new Map(store.blocks)
-  const placed = new Map<string, PlacedBlock>()
-  positions.forEach(({ x, y, z, id, color }) => {
-    const key = `${x},${y},${z}`
-    // Known limitation: mirrored copies are placed as full blocks. Keeping
-    // variants would also need stair/door/gate facings flipped.
-    const block: PlacedBlock = { id, color, variantType: 'full' }
-    next.set(key, block)
-    placed.set(key, block)
-  })
-  useEditorStore.setState({
-    blocks: next,
-    undoStack: [...store.undoStack, {
-      type: 'bulk' as const,
-      placed,
-      removed: new Map<string, PlacedBlock>(),
-    }].slice(-100),
-    redoStack: [],
-  })
+  // Place each mirrored block with its own id and colour. bulkPlace records
+  // any blocks the copy lands on, so undo restores them.
+  // Known limitation: mirrored copies are placed as full blocks. Keeping
+  // variants would also need stair/door/gate facings flipped.
+  useEditorStore.getState().bulkPlace(
+    positions.map(({ x, y, z, id, color }) => ({
+      x, y, z,
+      block: { id, color, variantType: 'full' } satisfies PlacedBlock,
+    }))
+  )
 }
 
 const mirrorBtnStyle: React.CSSProperties = {

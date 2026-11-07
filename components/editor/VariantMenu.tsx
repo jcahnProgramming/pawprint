@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { getBlockFamily, BlockVariant, RadialSegment } from '@/lib/blockVariants'
 import { VariantType } from '@/lib/blockVariants'
+import { isTypingTarget } from '@/lib/keyboard'
 
 export default function VariantMenu() {
   const isOpen = useEditorStore((s) => s.isVariantMenuOpen)
@@ -20,7 +21,7 @@ export default function VariantMenu() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const store = useEditorStore.getState()
-      if (e.code === 'KeyQ' && !store.isPickerOpen && !store.isVariantMenuOpen) {
+      if (e.code === 'KeyQ' && !store.isPickerOpen && !store.isVariantMenuOpen && !isTypingTarget(e.target)) {
         e.preventDefault()
         // Release pointer lock to show menu
         document.exitPointerLock()
