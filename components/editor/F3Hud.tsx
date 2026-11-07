@@ -76,7 +76,7 @@ export default function F3Hud() {
     }}>
       {/* Title */}
       <div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '4px', fontSize: '11px' }}>
-        🐾 PawPrint Debug
+        🐾 Pawprint Debug
       </div>
 
       {/* FPS */}

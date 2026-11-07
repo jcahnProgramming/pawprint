@@ -220,7 +220,7 @@ export function exportLitematic(
   // Metadata
   w.startCompoundTag('Metadata')
   w.writeStringTag('Name', projectName)
-  w.writeStringTag('Author', 'PawPrint')
+  w.writeStringTag('Author', 'Pawprint')
   w.writeIntTag('RegionCount', 1)
   w.writeLongTag('TimeCreated', now)
   w.writeLongTag('TimeModified', now)

@@ -16,7 +16,7 @@ export default function Home() {
       gap: '16px'
     }}>
       <div style={{ fontSize: '64px' }}>🐾</div>
-      <h1 style={{ fontSize: '48px', fontWeight: 'bold' }}>PawPrint</h1>
+      <h1 style={{ fontSize: '48px', fontWeight: 'bold' }}>Pawprint</h1>
       <p style={{ color: '#888', fontSize: '16px' }}>Browser-native Minecraft schematic builder</p>
       <Link href="/editor" style={{
         marginTop: '24px',

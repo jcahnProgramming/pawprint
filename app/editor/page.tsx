@@ -18,7 +18,7 @@ const EditorClient = dynamic(() => import('@/components/editor/EditorClient'), {
       fontFamily: 'monospace',
       fontSize: '18px'
     }}>
-      🐾 Loading PawPrint...
+      🐾 Loading Pawprint...
     </div>
   )
 })

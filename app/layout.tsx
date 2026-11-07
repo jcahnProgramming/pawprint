@@ -3,7 +3,7 @@ import { AUTHOR_NAME, AUTHOR_URL } from '@/components/Credit'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'PawPrint',
+  title: 'Pawprint',
   description: 'Browser-native Minecraft schematic builder. Pawprint, made by Jamie Cahn.',
   authors: [{ name: AUTHOR_NAME, url: AUTHOR_URL }],
   creator: AUTHOR_NAME,

@@ -94,7 +94,7 @@ export default function InfoPanel() {
           </style>
         </head>
         <body>
-          <h1>🐾 PawPrint — Material List</h1>
+          <h1>🐾 Pawprint — Material List</h1>
           <h2>${projectName}</h2>
           <div class="meta">
             Dimensions: ${info.dimensions.x}W × ${info.dimensions.y}H × ${info.dimensions.z}D &nbsp;|&nbsp;
