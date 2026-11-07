@@ -46,6 +46,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# CHANGELOG.json is read at run time by /api/health for the app version.
+COPY --from=builder /app/CHANGELOG.json ./CHANGELOG.json
 
 USER nextjs
 

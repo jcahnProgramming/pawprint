@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.1.1",
+      "date": "2026-11-07",
+      "title": "Health check and automatic deploys",
+      "sections": {
+        "New": [],
+        "Improved": [
+          "Pawprint has a health check at /api/health that reports whether the app is up and which version is running.",
+          "New versions now go live automatically when changes are merged, after the server confirms the app started and stays healthy."
+        ],
+        "Fixed": []
+      }
+    },
+    {
       "version": "0.1.0",
       "date": "2026-11-07",
       "title": "Security update, new README and a credit to the author",
