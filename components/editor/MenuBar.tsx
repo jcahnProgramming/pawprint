@@ -1,6 +1,7 @@
 'use client'
 
 import { useEditorStore } from '@/store/editorStore'
+import Credit from '@/components/Credit'
 
 export default function MenuBar() {
   const setProjectPanelOpen = useEditorStore((s) => s.setProjectPanelOpen)
@@ -142,6 +143,12 @@ export default function MenuBar() {
       }}>
         {blocks.size.toLocaleString()} blocks
       </div>
+
+      {/* Divider */}
+      <div style={{ width: '1px', height: '16px', background: '#333', margin: '0 8px' }} />
+
+      {/* Credit */}
+      <Credit style={{ color: '#555', fontSize: '11px', whiteSpace: 'nowrap' }} linkColor="#888" />
     </div>
   )
 }

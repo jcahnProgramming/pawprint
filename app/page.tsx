@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Credit from '@/components/Credit'
 
 export default function Home() {
   return (
@@ -29,7 +30,9 @@ export default function Home() {
       }}>
         Open Editor
       </Link>
-      <p style={{ color: '#444', fontSize: '12px', marginTop: '8px' }}>MeowNet Studios</p>
+      <p style={{ color: '#777', fontSize: '12px', marginTop: '8px' }}>
+        <Credit linkColor="#aaa" />
+      </p>
     </div>
   )
 }
