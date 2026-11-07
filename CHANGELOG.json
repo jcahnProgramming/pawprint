@@ -1,0 +1,25 @@
+{
+  "releases": [
+    {
+      "version": "0.1.0",
+      "date": "2026-11-07",
+      "title": "Security update, new README and a credit to the author",
+      "sections": {
+        "New": [
+          "A \"Pawprint, made by Jamie Cahn\" credit now appears on the home page and in the editor's top bar, linking to jamiecahn.com.",
+          "A full README explains what Pawprint does, how to use the editor, and how to run it yourself locally or with Docker, with screenshots."
+        ],
+        "Improved": [
+          "Pawprint now runs on Next.js 15.5 and React 19, with the matching versions of the 3D libraries, so it gets current security fixes.",
+          "The app is built with full type-checking and linting switched on, so mistakes are caught before a release instead of after."
+        ],
+        "Fixed": [
+          "Updated the web framework past several critical security advisories, including remote-code-execution bugs in its built-in image optimizer.",
+          "Printing a material list (Info → PDF) is now safe with projects imported from other people. A specially crafted .pawprint file can no longer run code in your browser.",
+          "Material lists exported as CSV are now safe to open in spreadsheet apps. Block names can no longer be read as formulas, and names containing quote marks no longer break the file.",
+          "The self-hosted Docker version is reachable again behind a tunnel or reverse proxy. It now listens on all network interfaces instead of only the first one."
+        ]
+      }
+    }
+  ]
+}

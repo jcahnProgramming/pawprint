@@ -4,6 +4,8 @@
 
 **Live: https://pawprint.jamiecahn.com**
 
+Pawprint, made by [Jamie Cahn](https://jamiecahn.com).
+
 ![PawPrint editor showing a cottage build with the tool bar and hotbar](docs/editor.jpg)
 
 ---
@@ -21,7 +23,7 @@
 
 ## Why I built it
 
-> **TODO (Jamie):** 2–3 sentences on the problem and who it's for. For example: what was painful about planning builds before, and who you had in mind (survival builders? server teams?).
+I built Pawprint to learn how to make games that run in the browser with TypeScript, and a Minecraft schematic builder turned out to be a fun way to do it: real-time 3D, a block palette, undo history and file export. I'm still actively updating it as new ideas come up.
 
 ## How to use it
 
@@ -49,7 +51,7 @@ Undo is **Ctrl/Cmd+Z**, redo is **Ctrl/Cmd+Shift+Z** or **Ctrl/Cmd+Y**, and **F3
 - Optional, for block textures: `bash`, `curl`, `python3` and `unzip`
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/jcahnProgramming/pawprint
 cd pawprint
 npm ci
 ```
@@ -66,7 +68,11 @@ npm ci
 
 ```bash
 npm run dev        # http://localhost:3000
+npm run lint       # ESLint
+npx tsc --noEmit   # type-check
 ```
+
+`npm run build` also runs the type-check and lint, and fails if either reports an error.
 
 **Production build**
 
@@ -98,8 +104,8 @@ The image is a multi-stage build. It installs dependencies, downloads the 1.21.4
 | Area | What |
 |---|---|
 | Language | TypeScript 5 |
-| Framework | Next.js 14.2 (App Router), React 18 |
-| 3D | three.js 0.183, @react-three/fiber 8, @react-three/drei 9 |
+| Framework | Next.js 15.5 (App Router), React 19 |
+| 3D | three.js 0.183, @react-three/fiber 9, @react-three/drei 10 |
 | State | Zustand 5 |
 | Storage | IndexedDB via `idb` 8, plus `localStorage` for the material checklist |
 | File formats | Hand-written NBT writer for `.litematic`, gzip via `pako` |
@@ -110,11 +116,12 @@ The image is a multi-stage build. It installs dependencies, downloads the 1.21.4
 
 ```
 app/                 Next.js routes: landing page (/) and the editor (/editor)
+components/          Shared UI (the "made by" credit)
 components/editor/   Editor UI: 3D scene, block meshes, toolbar, hotbar, picker, panels, HUD
 lib/                 Block catalogue, variants and geometry, textures, file formats,
                      .litematic NBT writer, IndexedDB project store, material stats
 store/               Zustand editor store: blocks, tools, hotbars, undo/redo, projects
-scripts/             Texture download/extract scripts and the deploy script
+scripts/             Texture download/extract scripts
 docs/                README screenshots
 Dockerfile           Multi-stage production image
 docker-compose.yml   Runs the image on port 3010
@@ -150,7 +157,8 @@ No. There are no accounts, no backend and no analytics in the code.
 
 - `.litematic`, `.schem` and `.schematic` **import** isn't implemented yet, and neither is `.schem` / `.schematic` **export** (they're stubs in `lib/fileFormats.ts`).
 - Mirror reflects the **whole build** (not a selection) across its own bounding box and adds the reflected copy. Mirrored blocks lose their variant shape (they become full blocks).
-- The production build skips type-checking and linting (`next.config.mjs` sets `ignoreBuildErrors` and `ignoreDuringBuilds`). `tsc` and `next lint` currently report errors.
+- Export uses the last saved copy of a project, not unsaved edits.
+- The Materials checklist is stored once per browser, not per project, so it carries over between projects.
 - There are no automated tests.
 
 ## Built with AI
