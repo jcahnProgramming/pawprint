@@ -1,4 +1,4 @@
-# 🐾 PawPrint
+# 🐾 Pawprint
 
 **A Minecraft schematic builder that runs in your browser.** You build in first person with real block textures, and get a material shopping list and a `.litematic` file you can load in-game.
 
@@ -6,7 +6,7 @@
 
 Pawprint, made by [Jamie Cahn](https://jamiecahn.com).
 
-![PawPrint editor showing a cottage build with the tool bar and hotbar](docs/editor.jpg)
+![Pawprint editor showing a cottage build with the tool bar and hotbar](docs/editor.jpg)
 
 ---
 
@@ -68,11 +68,11 @@ npm ci
 
 ```bash
 npm run dev        # http://localhost:3000
-npm run lint       # ESLint
+npm run lint       # ESLint CLI (eslint.config.mjs); fails on any error or warning
 npx tsc --noEmit   # type-check
 ```
 
-`npm run build` also runs the type-check and lint, and fails if either reports an error.
+`npm run build` runs the lint first and then the Next.js build, which type-checks. It fails if either step reports a problem.
 
 **Production build**
 
@@ -97,7 +97,7 @@ The image is a multi-stage build. It installs dependencies, downloads the 1.21.4
 
 **Why `HOSTNAME=0.0.0.0`?** Docker sets `HOSTNAME` inside a container to the container ID. The Next.js standalone server reads `HOSTNAME` as the address to bind to, so without the override it listens only on the IP of the container's first Docker network. Requests arriving on any other network, such as from a reverse proxy or tunnel, are refused. Setting `HOSTNAME=0.0.0.0` makes it listen on all interfaces.
 
-**Networks.** `docker-compose.yml` also attaches the container to an external network called `supabase_default`, so that it shares a network with the tunnel that serves the live site. That network has to exist already. If you're running PawPrint on your own machine, either create it first (`docker network create supabase_default`) or delete the `tunnel` network entries from the compose file.
+**Networks.** `docker-compose.yml` also attaches the container to an external network called `supabase_default`, so that it shares a network with the tunnel that serves the live site. That network has to exist already. If you're running Pawprint on your own machine, either create it first (`docker network create supabase_default`) or delete the `tunnel` network entries from the compose file.
 
 ## Tech stack
 
@@ -130,7 +130,7 @@ docker-compose.yml   Runs the image on port 3010
 ## FAQ
 
 **Which file formats can I import and export?**
-Export: `.pawprint` (PawPrint's own JSON) and `.litematic` for Minecraft 1.21.4 or 1.20.4. Import: `.pawprint` only. The import dialog also accepts `.litematic`, `.schem` and `.schematic`, but these currently return a "coming soon" message. `.schem`/`.schematic` export is listed in the menu but disabled. (See `lib/fileFormats.ts`.)
+Export: `.pawprint` (Pawprint's own JSON) and `.litematic` for Minecraft 1.21.4 or 1.20.4. Import: `.pawprint` only. The import dialog also accepts `.litematic`, `.schem` and `.schematic`, but these currently return a "coming soon" message. `.schem`/`.schematic` export is listed in the menu but disabled. (See `lib/fileFormats.ts`.)
 
 **Where are my builds saved?**
 In your browser's IndexedDB (database `pawprint`). Nothing is sent to a server, so projects stay on that browser and device. Clearing site data deletes them. To move a build to another device, export it as `.pawprint` and import it there.
@@ -156,7 +156,11 @@ No. There are no accounts, no backend and no analytics in the code.
 ## Known limitations
 
 - `.litematic`, `.schem` and `.schematic` **import** isn't implemented yet, and neither is `.schem` / `.schematic` **export** (they're stubs in `lib/fileFormats.ts`).
-- Mirror reflects the **whole build** (not a selection) across its own bounding box and adds the reflected copy. Mirrored blocks lose their variant shape (they become full blocks).
+- Mirror reflects the **whole build** (not a selection) across its own bounding box and adds the reflected copy. Mirrored blocks lose their variant shape (they become full blocks), and undoing a mirror can remove original blocks that the mirrored copy landed on.
+- Redo after an action that replaced existing blocks (Fill, or Paste or Rectangle over existing blocks) deletes those blocks instead of re-applying the change. Undo brings them back.
+- Paste places the copied shape using the currently selected block, not the blocks that were copied.
+- Single-key shortcuts (B, L, G, F, C, V, M, R, 1–9) also fire while typing in the project rename box.
+- Pressing Tab can move keyboard focus into a closed side panel, which slides the whole editor sideways until the page is reloaded.
 - Export uses the last saved copy of a project, not unsaved edits.
 - The Materials checklist is stored once per browser, not per project, so it carries over between projects.
 - There are no automated tests.
@@ -171,4 +175,4 @@ No license file yet. All rights reserved by default.
 
 ---
 
-*Minecraft is a trademark of Mojang Studios. PawPrint is not affiliated with Mojang or Microsoft. Block textures are downloaded from Mojang's servers at build time and aren't included in this repository.*
+*Minecraft is a trademark of Mojang Studios. Pawprint is not affiliated with Mojang or Microsoft. Block textures are downloaded from Mojang's servers at build time and aren't included in this repository.*

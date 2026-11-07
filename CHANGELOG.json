@@ -11,7 +11,8 @@
         ],
         "Improved": [
           "Pawprint now runs on Next.js 15.5 and React 19, with the matching versions of the 3D libraries, so it gets current security fixes.",
-          "The app is built with full type-checking and linting switched on, so mistakes are caught before a release instead of after."
+          "The app is built with full type-checking and linting switched on, so mistakes are caught before a release instead of after. Linting now uses the standard ESLint tool, so it keeps working on future Next.js versions.",
+          "The name is now spelled \"Pawprint\" everywhere: page titles, the home page, the editor, printed material lists, and the author field of exported .litematic files."
         ],
         "Fixed": [
           "Updated the web framework past several critical security advisories, including remote-code-execution bugs in its built-in image optimizer.",
