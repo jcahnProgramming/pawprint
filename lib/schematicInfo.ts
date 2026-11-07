@@ -158,10 +158,17 @@ export function computeSchematicInfo(blocks: Map<string, PlacedBlock>): Schemati
 }
 
 // CSV export
-export function exportMaterialsCSV(materials: MaterialEntry[], projectName: string): string {
+export function exportMaterialsCSV(materials: MaterialEntry[]): string {
   const rows = [
     ['Block', 'Variant', 'Count'],
     ...materials.map(m => [m.displayName, m.variantType, String(m.count)]),
   ]
-  return rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+  return rows.map(r => r.map(csvCell).join(',')).join('\n')
+}
+
+// Quote a CSV cell, escape embedded quotes, and stop spreadsheet apps from
+// treating block names from imported files as formulas.
+function csvCell(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+  return `"${safe.replace(/"/g, '""')}"`
 }

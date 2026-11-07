@@ -1,4 +1,8 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
+import type { VariantType } from './blockVariants'
+
+// Projects saved before block variants existed have no variantType.
+export type StoredBlock = { id: string; color: string; variantType?: VariantType }
 
 export type ProjectRecord = {
   id: string
@@ -6,7 +10,7 @@ export type ProjectRecord = {
   createdAt: number
   updatedAt: number
   blockCount: number
-  blocks: Record<string, { id: string; color: string }>
+  blocks: Record<string, StoredBlock>
 }
 
 interface PawPrintDB extends DBSchema {

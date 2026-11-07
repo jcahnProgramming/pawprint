@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useEditorStore } from '@/store/editorStore'
-import { deleteProject } from '@/lib/projectDB'
+import { useEditorStore, PlacedBlock } from '@/store/editorStore'
+import { deleteProject, ProjectRecord } from '@/lib/projectDB'
 import { importFromFile, exportToFile, downloadBlob } from '@/lib/fileFormats'
 
 export default function ProjectPanel() {
@@ -136,9 +136,7 @@ export default function ProjectPanel() {
   }
 
   const handleExport = (project: typeof projects[0], format: 'pawprint') => {
-    const blockMap = new Map<string, { id: string; color: string }>()
-    Object.entries(project.blocks).forEach(([k, v]) => blockMap.set(k, v))
-    const result = exportToFile(blockMap, project.name, format)
+    const result = exportToFile(toBlockMap(project), project.name, format)
     if (result.error) {
       showStatus(`⚠ ${result.error}`)
     } else if (result.data && result.filename) {
@@ -152,9 +150,7 @@ export default function ProjectPanel() {
     project: typeof projects[0],
     mcVersion: '1.21.4' | '1.20.4'
   ) => {
-    const blockMap = new Map<string, { id: string; color: string }>()
-    Object.entries(project.blocks).forEach(([k, v]) => blockMap.set(k, v))
-    const result = exportToFile(blockMap, project.name, 'litematic', mcVersion)
+    const result = exportToFile(toBlockMap(project), project.name, 'litematic', mcVersion)
     if (result.error) {
       showStatus(`⚠ ${result.error}`)
     } else if (result.data && result.filename) {
@@ -643,4 +639,13 @@ function exportItemBtn(color: string): React.CSSProperties {
     borderRadius: '4px',
     transition: 'background 0.1s',
   }
+}
+// Older saved projects have no variantType; treat those blocks as full blocks,
+// the same default loadProject uses.
+function toBlockMap(project: ProjectRecord): Map<string, PlacedBlock> {
+  const blockMap = new Map<string, PlacedBlock>()
+  Object.entries(project.blocks).forEach(([key, block]) => {
+    blockMap.set(key, { ...block, variantType: block.variantType ?? 'full' })
+  })
+  return blockMap
 }

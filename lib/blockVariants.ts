@@ -68,11 +68,6 @@ export type BlockFamily = {
   segments: RadialSegment[]
 }
 
-// Helper to make a full block variant
-function full(baseId: string, label: string): BlockVariant {
-  return { type: 'full', label, icon: '🧱', blockId: baseId, group: 'full' }
-}
-
 // Helper to make slab variants
 function slabs(id: string): RadialSegment {
   return {

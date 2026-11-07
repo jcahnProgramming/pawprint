@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { getBlockFamily, BlockVariant, RadialSegment } from '@/lib/blockVariants'
 import { VariantType } from '@/lib/blockVariants'
@@ -11,10 +11,8 @@ export default function VariantMenu() {
   const selectedBlock = useEditorStore((s) => s.selectedBlock)
   const selectedVariant = useEditorStore((s) => s.selectedVariant)
   const setSelectedVariant = useEditorStore((s) => s.setSelectedVariant)
-  const setLocked = useEditorStore((s) => s.setPointerLocked)
 
   const [activeSegment, setActiveSegment] = useState<RadialSegment | null>(null)
-  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
 
   const family = getBlockFamily(selectedBlock.id)
 
@@ -26,7 +24,6 @@ export default function VariantMenu() {
         e.preventDefault()
         // Release pointer lock to show menu
         document.exitPointerLock()
-        setMenuPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
         store.setVariantMenuOpen(true)
       }
     }

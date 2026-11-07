@@ -4,7 +4,7 @@ import { useRef, useEffect } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { useEditorStore } from '@/store/editorStore'
+import { useEditorStore, PlacedBlock } from '@/store/editorStore'
 import { getLineBetween, getRectBetween, floodFill } from '@/lib/toolHelpers'
 import GroundGrid from './GroundGrid'
 import BlockMesh from './BlockMesh'
@@ -217,7 +217,7 @@ export default function Scene() {
                 store.bulkPlace(positions)
                 store.setUndoMessage(`Filled rectangle of ${positions.length} blocks`)
               } else if (tool === 'copy') {
-                const copied = new Map<string, { id: string; color: string }>()
+                const copied = new Map<string, PlacedBlock>()
                 const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x)
                 const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y)
                 const minZ = Math.min(a.z, b.z), maxZ = Math.max(a.z, b.z)

@@ -1,4 +1,3 @@
-import pako from 'pako'
 import { PlacedBlock } from '@/store/editorStore'
 import { exportLitematic as exportLitematicNBT } from './litematic'
 
@@ -52,7 +51,8 @@ export function exportLitematic(
   try {
     const bytes = exportLitematicNBT(blocks, name, mcVersion)
     return {
-      data: new Blob([bytes], { type: 'application/octet-stream' }),
+      // Copy into an ArrayBuffer-backed array, which is what Blob accepts
+      data: new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' }),
       filename: `${name.replace(/[^a-z0-9_\-]/gi, '_')}.litematic`,
     }
   } catch (e) {
@@ -60,7 +60,7 @@ export function exportLitematic(
   }
 }
 
-export function importLitematic(buffer: ArrayBuffer): ImportResult {
+export function importLitematic(): ImportResult {
   return {
     blocks: new Map(),
     name: 'Litematic Import',
@@ -70,14 +70,11 @@ export function importLitematic(buffer: ArrayBuffer): ImportResult {
 
 // ── .schem (stub) ────────────────────────────────────────────────────────────
 
-export function exportSchem(
-  blocks: Map<string, PlacedBlock>,
-  name: string
-): { error: string } {
+export function exportSchem(): { error: string } {
   return { error: '.schem export coming soon — use .pawprint for now' }
 }
 
-export function importSchem(buffer: ArrayBuffer): ImportResult {
+export function importSchem(): ImportResult {
   return {
     blocks: new Map(),
     name: 'Schem Import',
@@ -87,14 +84,11 @@ export function importSchem(buffer: ArrayBuffer): ImportResult {
 
 // ── .schematic legacy (stub) ─────────────────────────────────────────────────
 
-export function exportSchematic(
-  blocks: Map<string, PlacedBlock>,
-  name: string
-): { error: string } {
+export function exportSchematic(): { error: string } {
   return { error: '.schematic export coming soon — use .pawprint for now' }
 }
 
-export function importSchematic(buffer: ArrayBuffer): ImportResult {
+export function importSchematic(): ImportResult {
   return {
     blocks: new Map(),
     name: 'Schematic Import',
@@ -114,10 +108,9 @@ export async function importFromFile(file: File): Promise<ImportResult> {
     return { ...result, name: result.name || nameWithoutExt }
   }
 
-  const buffer = await file.arrayBuffer()
-  if (ext === 'litematic') return { ...importLitematic(buffer), name: nameWithoutExt }
-  if (ext === 'schem') return { ...importSchem(buffer), name: nameWithoutExt }
-  if (ext === 'schematic') return { ...importSchematic(buffer), name: nameWithoutExt }
+  if (ext === 'litematic') return { ...importLitematic(), name: nameWithoutExt }
+  if (ext === 'schem') return { ...importSchem(), name: nameWithoutExt }
+  if (ext === 'schematic') return { ...importSchematic(), name: nameWithoutExt }
 
   return {
     blocks: new Map(),
@@ -149,12 +142,12 @@ export function exportToFile(
   }
 
   if (format === 'schem') {
-    const result = exportSchem(blocks, name)
+    const result = exportSchem()
     return { error: result.error }
   }
 
   if (format === 'schematic') {
-    const result = exportSchematic(blocks, name)
+    const result = exportSchematic()
     return { error: result.error }
   }
 

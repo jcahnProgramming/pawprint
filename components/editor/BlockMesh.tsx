@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo } from 'react'
-import * as THREE from 'three'
 import { useEditorStore, PlacedBlock } from '@/store/editorStore'
 import { getBlockTextures } from '@/lib/blockTextures'
 import { getBlockMaterials } from '@/lib/textureLoader'
@@ -180,10 +179,12 @@ function VariantBlock({
     [textureId, color, faceTextures, variantType, mirrored]
   )
 
+  // Depend on the four booleans, not the connections object (which is new
+  // on every render), so geometry is only rebuilt when a neighbour changes.
+  const { north, south, east, west } = connections
   const parts = useMemo(
-    () => getVariantGeometry(variantType, connections),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [variantType, connections.north, connections.south, connections.east, connections.west]
+    () => getVariantGeometry(variantType, { north, south, east, west }),
+    [variantType, north, south, east, west]
   )
 
   return (

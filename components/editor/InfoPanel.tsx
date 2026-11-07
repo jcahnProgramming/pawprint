@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
-import { computeSchematicInfo, exportMaterialsCSV, MaterialEntry } from '@/lib/schematicInfo'
+import { computeSchematicInfo, exportMaterialsCSV } from '@/lib/schematicInfo'
 
 const CHECKLIST_KEY = 'pawprint_checklist'
 
@@ -59,7 +59,7 @@ export default function InfoPanel() {
   }
 
   const handleExportCSV = () => {
-    const csv = exportMaterialsCSV(info.materials, currentProjectName)
+    const csv = exportMaterialsCSV(info.materials)
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -70,25 +70,15 @@ export default function InfoPanel() {
   }
 
   const handleExportPDF = () => {
-    const lines = [
-      `PawPrint — Material List`,
-      `Project: ${currentProjectName}`,
-      `Dimensions: ${info.dimensions.x}W × ${info.dimensions.y}H × ${info.dimensions.z}D`,
-      `Total Blocks: ${info.totalBlocks.toLocaleString()}`,
-      ``,
-      `MATERIALS`,
-      `─────────────────────────────────`,
-      ...info.materials.map((m, i) =>
-        `${String(i + 1).padStart(3, ' ')}. ${m.displayName.padEnd(40, ' ')} × ${m.count.toLocaleString()}`
-      ),
-    ]
-
+    // Project and block names can come from imported files, so escape them
+    // before writing into the same-origin print window.
+    const projectName = escapeHtml(currentProjectName)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(`
       <html>
         <head>
-          <title>${currentProjectName} — Material List</title>
+          <title>${projectName} — Material List</title>
           <style>
             body { font-family: monospace; padding: 40px; color: #111; }
             h1 { font-size: 20px; margin-bottom: 4px; }
@@ -105,7 +95,7 @@ export default function InfoPanel() {
         </head>
         <body>
           <h1>🐾 PawPrint — Material List</h1>
-          <h2>${currentProjectName}</h2>
+          <h2>${projectName}</h2>
           <div class="meta">
             Dimensions: ${info.dimensions.x}W × ${info.dimensions.y}H × ${info.dimensions.z}D &nbsp;|&nbsp;
             Total: ${info.totalBlocks.toLocaleString()} blocks &nbsp;|&nbsp;
@@ -125,7 +115,7 @@ export default function InfoPanel() {
                 <tr>
                   <td class="check">☐</td>
                   <td>${i + 1}</td>
-                  <td>${m.displayName}</td>
+                  <td>${escapeHtml(m.displayName)}</td>
                   <td class="count">${m.count.toLocaleString()}</td>
                 </tr>
               `).join('')}
@@ -543,4 +533,12 @@ const exportBtn: React.CSSProperties = {
   fontSize: '11px',
   cursor: 'pointer',
   flex: 1,
+}
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }

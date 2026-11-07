@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useEditorStore, ToolType } from '@/store/editorStore'
+import { useEditorStore, ToolType, PlacedBlock } from '@/store/editorStore'
 
 const TOOLS: { id: ToolType; label: string; icon: string; key: string; description: string }[] = [
   { id: 'place', label: 'Place', icon: '🧱', key: 'B', description: 'Place blocks' },
@@ -130,7 +130,7 @@ export default function Toolbar() {
             <button
               onClick={() => {
                 const store = useEditorStore.getState()
-                mirrorBlocks(store.blocks, 'x', store.bulkPlace)
+                mirrorBlocks(store.blocks, 'x')
                 store.setUndoMessage('Mirrored on X axis')
                 store.setActiveTool('place')
               }}
@@ -141,7 +141,7 @@ export default function Toolbar() {
             <button
               onClick={() => {
                 const store = useEditorStore.getState()
-                mirrorBlocks(store.blocks, 'z', store.bulkPlace)
+                mirrorBlocks(store.blocks, 'z')
                 store.setUndoMessage('Mirrored on Z axis')
                 store.setActiveTool('place')
               }}
@@ -179,9 +179,8 @@ export default function Toolbar() {
 }
 
 function mirrorBlocks(
-  blocks: Map<string, { id: string; color: string }>,
-  axis: 'x' | 'z',
-  bulkPlace: (positions: { x: number; y: number; z: number }[]) => void
+  blocks: Map<string, PlacedBlock>,
+  axis: 'x' | 'z'
 ) {
   if (blocks.size === 0) return
 
@@ -211,18 +210,21 @@ function mirrorBlocks(
   // So we bypass bulkPlace and use the store directly
   const store = useEditorStore.getState()
   const next = new Map(store.blocks)
-  const placed = new Map<string, { id: string; color: string }>()
+  const placed = new Map<string, PlacedBlock>()
   positions.forEach(({ x, y, z, id, color }) => {
     const key = `${x},${y},${z}`
-    next.set(key, { id, color })
-    placed.set(key, { id, color })
+    // Known limitation: mirrored copies are placed as full blocks. Keeping
+    // variants would also need stair/door/gate facings flipped.
+    const block: PlacedBlock = { id, color, variantType: 'full' }
+    next.set(key, block)
+    placed.set(key, block)
   })
   useEditorStore.setState({
     blocks: next,
     undoStack: [...store.undoStack, {
-      type: 'bulk',
+      type: 'bulk' as const,
       placed,
-      removed: new Map(),
+      removed: new Map<string, PlacedBlock>(),
     }].slice(-100),
     redoStack: [],
   })
