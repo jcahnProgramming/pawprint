@@ -18,7 +18,15 @@
           "Updated the web framework past several critical security advisories, including remote-code-execution bugs in its built-in image optimizer.",
           "Printing a material list (Info → PDF) is now safe with projects imported from other people. A specially crafted .pawprint file can no longer run code in your browser.",
           "Material lists exported as CSV are now safe to open in spreadsheet apps. Block names can no longer be read as formulas, and names containing quote marks no longer break the file.",
-          "The self-hosted Docker version is reachable again behind a tunnel or reverse proxy. It now listens on all network interfaces instead of only the first one."
+          "The self-hosted Docker version is reachable again behind a tunnel or reverse proxy. It now listens on all network interfaces instead of only the first one.",
+          "Redo no longer deletes blocks after a Fill, or after a Paste or Rectangle over existing blocks. It now re-applies the change.",
+          "Paste now places the blocks you copied, instead of repeating the copied shape in whichever block was selected.",
+          "Undoing a Mirror now brings back any blocks the mirrored copy landed on.",
+          "Pressing Tab no longer moves focus into a closed side panel and slides the editor sideways.",
+          "Typing in a text box, such as when renaming a project, no longer triggers editor shortcuts like tool keys, hotbar numbers or Ctrl+Z.",
+          "Undoing an erase now says how many blocks came back, instead of \"Undid 0 blocks\".",
+          "The F3 debug panel's title is no longer hidden under the menu bar.",
+          "The Mirror X and Z buttons now have names that screen readers can announce."
         ]
       }
     }

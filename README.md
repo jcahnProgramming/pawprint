@@ -156,11 +156,8 @@ No. There are no accounts, no backend and no analytics in the code.
 ## Known limitations
 
 - `.litematic`, `.schem` and `.schematic` **import** isn't implemented yet, and neither is `.schem` / `.schematic` **export** (they're stubs in `lib/fileFormats.ts`).
-- Mirror reflects the **whole build** (not a selection) across its own bounding box and adds the reflected copy. Mirrored blocks lose their variant shape (they become full blocks), and undoing a mirror can remove original blocks that the mirrored copy landed on.
-- Redo after an action that replaced existing blocks (Fill, or Paste or Rectangle over existing blocks) deletes those blocks instead of re-applying the change. Undo brings them back.
-- Paste places the copied shape using the currently selected block, not the blocks that were copied.
-- Single-key shortcuts (B, L, G, F, C, V, M, R, 1–9) also fire while typing in the project rename box.
-- Pressing Tab can move keyboard focus into a closed side panel, which slides the whole editor sideways until the page is reloaded.
+- Mirror reflects the **whole build** (not a selection) across its own bounding box and adds the reflected copy. Mirrored blocks lose their variant shape (they become full blocks).
+- Aiming at the lower part of a block near the ground can target the ground grid instead, so Fill or Erase does nothing. Aim at the block's top or upper half.
 - Export uses the last saved copy of a project, not unsaved edits.
 - The Materials checklist is stored once per browser, not per project, so it carries over between projects.
 - There are no automated tests.
