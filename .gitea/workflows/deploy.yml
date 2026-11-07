@@ -1,0 +1,150 @@
+# Redeploys Pawprint on the author's server on every push to main (Gitea Actions).
+#
+# The job container can reach the host's Docker daemon (the runner passes docker.sock into job
+# containers) but not the host's filesystem, so every step that touches the deployment runs a
+# short-lived helper container with the host folder bind-mounted at the SAME path. That keeps
+# compose's project name and relative paths identical to a manual `docker compose up` there.
+#
+# No server details live in this repo. They come from Gitea Actions variables
+# (repo Settings > Actions > Variables):
+#   DEPLOY_DIR          absolute path of the git checkout on the host
+#   GITEA_INTERNAL_URL  Gitea's base URL as containers on the host reach it (no trailing slash)
+#   HEALTH_NETWORK      Docker network shared with the app container (the one the tunnel uses)
+#   HEALTH_URL          the app's /api/health URL on that network
+#
+# The checkout is RESET to origin/main (not merged): the host copy is never edited by hand.
+# Untracked files are never touched (no `git clean`). Pawprint needs no .env.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+  GITEA_INTERNAL_URL: ${{ vars.GITEA_INTERNAL_URL }}
+  HEALTH_NETWORK: ${{ vars.HEALTH_NETWORK }}
+  HEALTH_URL: ${{ vars.HEALTH_URL }}
+  APP_CONTAINER: pawprint
+  GIT_IMAGE: alpine/git:latest
+  DOCKER_IMAGE: docker:cli
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:cli
+    defaults:
+      run:
+        shell: sh
+    timeout-minutes: 30
+    steps:
+      - name: Preflight — variables, Docker daemon, deploy folder
+        run: |
+          set -eu
+          missing=0
+          # Names only; values are never printed.
+          for v in DEPLOY_DIR GITEA_INTERNAL_URL HEALTH_NETWORK HEALTH_URL; do
+            eval "val=\${$v:-}"
+            if [ -n "$val" ]; then echo "variable $v: set"; else echo "::error::Gitea Actions variable $v is not set"; missing=1; fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          if ! docker version >/dev/null 2>&1; then
+            echo "::error::No Docker daemon reachable from the job container (the runner must pass docker.sock)."
+            exit 1
+          fi
+          echo "Docker daemon reachable."
+          # --mount fails if the host path doesn't exist (instead of creating an empty folder).
+          docker run --rm \
+            --mount "type=bind,source=$DEPLOY_DIR,target=$DEPLOY_DIR,readonly" \
+            -w "$DEPLOY_DIR" --entrypoint sh "$GIT_IMAGE" -c '
+              set -eu
+              missing=0
+              # Not CHANGELOG.json: an older checkout may predate it; the reset below brings it in.
+              for f in .git docker-compose.yml Dockerfile; do
+                if [ ! -e "$f" ]; then echo "::error::deploy folder: $f not found"; missing=1; fi
+              done
+              [ "$missing" = 0 ] || exit 1
+              echo "Deploy folder looks like a Pawprint checkout."
+            '
+
+      - name: Reset host checkout to origin/main
+        env:
+          GIT_TOKEN: ${{ gitea.token }}
+          REPO_PATH: ${{ gitea.repository }}
+          PUSHED_SHA: ${{ gitea.sha }}
+        run: |
+          set -eu
+          # The token travels in an env var and an HTTP header, never in argv or .git/config.
+          docker run --rm \
+            --mount "type=bind,source=$DEPLOY_DIR,target=$DEPLOY_DIR" \
+            -w "$DEPLOY_DIR" \
+            -e GIT_TOKEN -e REPO_PATH -e PUSHED_SHA -e GITEA_INTERNAL_URL \
+            --entrypoint sh "$GIT_IMAGE" -c '
+              set -eu
+              git config --global --add safe.directory "$PWD"
+              auth="Authorization: Basic $(printf "x-access-token:%s" "$GIT_TOKEN" | base64 | tr -d "\n")"
+              before=$(git rev-parse HEAD 2>/dev/null || echo none)
+              # -q keeps the server URL out of the log.
+              git -c http.extraHeader="$auth" fetch -q --no-tags "$GITEA_INTERNAL_URL/$REPO_PATH.git" main
+              git update-ref refs/remotes/origin/main FETCH_HEAD
+              git checkout -q -B main origin/main
+              git reset -q --hard origin/main
+              after=$(git rev-parse HEAD)
+              echo "Deployed commit: $before -> $after"
+              [ "$after" = "$PUSHED_SHA" ] || echo "::warning::HEAD ($after) differs from the pushed commit ($PUSHED_SHA). A newer push is probably on main already."
+            '
+
+      - name: Rebuild and restart
+        run: |
+          set -eu
+          docker run --rm \
+            --mount "type=bind,source=$DEPLOY_DIR,target=$DEPLOY_DIR" \
+            --mount "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock" \
+            -w "$DEPLOY_DIR" "$DOCKER_IMAGE" \
+            docker compose up -d --build
+
+      - name: Health check (via the tunnel's Docker network)
+        run: |
+          set -eu
+          EXPECTED=$(docker run --rm --mount "type=bind,source=$DEPLOY_DIR,target=$DEPLOY_DIR,readonly" "$DOCKER_IMAGE" \
+            sh -c "sed -n 's/.*\"version\": *\"\([0-9.]*\)\".*/\1/p' $DEPLOY_DIR/CHANGELOG.json | head -1")
+          [ -n "$EXPECTED" ] || { echo "::error::Could not read the version from CHANGELOG.json"; exit 1; }
+          echo "Expecting version $EXPECTED"
+
+          HOME_URL="${HEALTH_URL%/api/health}/"
+          probe() { docker run --rm --network "$HEALTH_NETWORK" "$DOCKER_IMAGE" wget -q -T 5 -O - "$1" 2>/dev/null; }
+          running() { [ "$(docker inspect -f '{{.State.Running}} {{.State.Restarting}}' "$APP_CONTAINER" 2>/dev/null)" = "true false" ]; }
+          healthy() { echo "$1" | grep -q '"ok":true' && echo "$1" | grep -q "\"version\":\"$EXPECTED\""; }
+
+          ok=0
+          for i in $(seq 1 40); do
+            h=$(probe "$HEALTH_URL" || true)
+            home=$(probe "$HOME_URL" >/dev/null && echo ok || echo fail)
+            if healthy "$h" && [ "$home" = ok ] && running; then ok=1; echo "attempt $i: healthy"; break; fi
+            echo "attempt $i: waiting (health=${h:-no answer}, /=$home)"
+            sleep 3
+          done
+          [ "$ok" = 1 ] || { echo "::error::Not healthy within ~2 minutes (last answer: ${h:-none})"; exit 1; }
+
+          # A crash-looping container can answer once and then die: the restart count must stay flat.
+          r1=$(docker inspect -f '{{.RestartCount}}' "$APP_CONTAINER")
+          sleep 20
+          r2=$(docker inspect -f '{{.RestartCount}}' "$APP_CONTAINER")
+          if [ "$r1" != "$r2" ] || ! running; then
+            echo "::error::The container restarted after coming up (restart count $r1 -> $r2): crash loop."
+            exit 1
+          fi
+          healthy "$(probe "$HEALTH_URL" || true)" || { echo "::error::The app stopped answering after coming up"; exit 1; }
+          echo "Healthy and stable on version $EXPECTED."
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$DEPLOY_DIR,target=$DEPLOY_DIR,readonly" \
+            --mount "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock" \
+            -w "$DEPLOY_DIR" "$DOCKER_IMAGE" \
+            sh -c 'docker compose ps -a; echo; docker compose logs --no-color --tail=150' || true

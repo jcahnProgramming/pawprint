@@ -81,7 +81,7 @@ npm run build
 node .next/standalone/server.js
 ```
 
-The app is built with `output: 'standalone'`. `npm run start` (`next start`) still serves the app, but Next.js warns that it doesn't support standalone output. The Docker image runs `node server.js` from the standalone folder. If you run the standalone server outside Docker, first copy `public/` and `.next/static/` into `.next/standalone/` (the Dockerfile does this for you).
+The app is built with `output: 'standalone'`. `npm run start` (`next start`) still serves the app, but Next.js warns that it doesn't support standalone output. The Docker image runs `node server.js` from the standalone folder. If you run the standalone server outside Docker, first copy `public/`, `.next/static/` and `CHANGELOG.json` into `.next/standalone/` (the Dockerfile does this for you). `GET /api/health` returns `{ "ok": true, "version": "…" }`, with the version taken from `CHANGELOG.json`.
 
 No environment variables are required. The app has no backend, API keys or database.
 
@@ -92,6 +92,8 @@ docker compose up -d --build
 ```
 
 Then open **http://localhost:3010**.
+
+Pushes to `main` deploy automatically on the author's server through Gitea Actions.
 
 The image is a multi-stage build. It installs dependencies, downloads the 1.21.4 textures at build time (so the build needs internet access), builds Next.js and runs the standalone server as a non-root user on port **3010**.
 
