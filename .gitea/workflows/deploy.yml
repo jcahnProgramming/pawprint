@@ -8,7 +8,7 @@
 # No server details live in this repo. They come from Gitea Actions variables
 # (repo Settings > Actions > Variables):
 #   DEPLOY_DIR          absolute path of the git checkout on the host
-#   GITEA_INTERNAL_URL  Gitea's base URL as containers on the host reach it (no trailing slash)
+#   INTERNAL_GIT_URL    Gitea's base URL as containers on the host reach it (no trailing slash)
 #   HEALTH_NETWORK      Docker network shared with the app container (the one the tunnel uses)
 #   HEALTH_URL          the app's /api/health URL on that network
 #
@@ -24,7 +24,7 @@ on:
 
 env:
   DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
-  GITEA_INTERNAL_URL: ${{ vars.GITEA_INTERNAL_URL }}
+  INTERNAL_GIT_URL: ${{ vars.INTERNAL_GIT_URL }}
   HEALTH_NETWORK: ${{ vars.HEALTH_NETWORK }}
   HEALTH_URL: ${{ vars.HEALTH_URL }}
   APP_CONTAINER: pawprint
@@ -46,7 +46,7 @@ jobs:
           set -eu
           missing=0
           # Names only; values are never printed.
-          for v in DEPLOY_DIR GITEA_INTERNAL_URL HEALTH_NETWORK HEALTH_URL; do
+          for v in DEPLOY_DIR INTERNAL_GIT_URL HEALTH_NETWORK HEALTH_URL; do
             eval "val=\${$v:-}"
             if [ -n "$val" ]; then echo "variable $v: set"; else echo "::error::Gitea Actions variable $v is not set"; missing=1; fi
           done
@@ -81,14 +81,14 @@ jobs:
           docker run --rm \
             --mount "type=bind,source=$DEPLOY_DIR,target=$DEPLOY_DIR" \
             -w "$DEPLOY_DIR" \
-            -e GIT_TOKEN -e REPO_PATH -e PUSHED_SHA -e GITEA_INTERNAL_URL \
+            -e GIT_TOKEN -e REPO_PATH -e PUSHED_SHA -e INTERNAL_GIT_URL \
             --entrypoint sh "$GIT_IMAGE" -c '
               set -eu
               git config --global --add safe.directory "$PWD"
               auth="Authorization: Basic $(printf "x-access-token:%s" "$GIT_TOKEN" | base64 | tr -d "\n")"
               before=$(git rev-parse HEAD 2>/dev/null || echo none)
               # -q keeps the server URL out of the log.
-              git -c http.extraHeader="$auth" fetch -q --no-tags "$GITEA_INTERNAL_URL/$REPO_PATH.git" main
+              git -c http.extraHeader="$auth" fetch -q --no-tags "$INTERNAL_GIT_URL/$REPO_PATH.git" main
               git update-ref refs/remotes/origin/main FETCH_HEAD
               git checkout -q -B main origin/main
               git reset -q --hard origin/main
